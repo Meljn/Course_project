@@ -160,6 +160,30 @@ export class RegressionEngine {
     });
   }
 
+  predictRaw(rawInput, dataset) {
+    if (!this.model) {
+      throw new Error('Модель еще не создана.');
+    }
+
+    const input = Array.from({ length: this.inputUnits }, (_, index) => {
+      const value = Number(rawInput[index]);
+      const scaler = dataset.xScaler[index];
+
+      if (!Number.isFinite(value)) {
+        throw new Error('Введите числовые значения признаков.');
+      }
+
+      return (value - scaler.mean) / scaler.std;
+    });
+    const inputTensor = tf.tensor2d([input], [1, this.inputUnits]);
+    const predictionTensor = this.model.predict(inputTensor);
+    const scaledPrediction = predictionTensor.dataSync()[0];
+    inputTensor.dispose();
+    predictionTensor.dispose();
+
+    return inverseTransformTarget(scaledPrediction, dataset.yScaler);
+  }
+
   async train(config, dataset, callbacks = {}) {
     if (!this.model) {
       throw new Error('Модель еще не создана.');

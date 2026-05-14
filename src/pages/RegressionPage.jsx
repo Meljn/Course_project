@@ -4,6 +4,7 @@ import LossChart from '../components/LossChart.jsx';
 import NetworkGraph from '../components/NetworkGraph.jsx';
 import RegressionConfigPanel from '../components/RegressionConfigPanel.jsx';
 import RegressionDatasetPreview from '../components/RegressionDatasetPreview.jsx';
+import RegressionPredictionPanel from '../components/RegressionPredictionPanel.jsx';
 import ResidualPlot from '../components/ResidualPlot.jsx';
 import TrainingControls from '../components/TrainingControls.jsx';
 import WeightsPanel from '../components/WeightsPanel.jsx';
@@ -54,10 +55,19 @@ function RegressionPage({ controller }) {
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Метрики</p>
-              <h2><BarChart3 size={18} /> Потери</h2>
+              <h2><BarChart3 size={18} /> Потери и остатки</h2>
             </div>
           </div>
-          <LossChart history={controller.history} validationLabel="validation loss" />
+          <div className="metrics-stack">
+            <div className="metric-block">
+              <h3>Потери</h3>
+              <LossChart history={controller.history} validationLabel="validation loss" />
+            </div>
+            <div className="metric-block">
+              <h3>Остатки</h3>
+              <ResidualPlot diagnostics={controller.diagnostics} />
+            </div>
+          </div>
         </section>
 
         <section className="panel">
@@ -73,11 +83,16 @@ function RegressionPage({ controller }) {
         <section className="panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Диагностика</p>
-              <h2><BarChart3 size={18} /> Residual plot</h2>
+              <p className="eyebrow">Прогноз</p>
+              <h2><BarChart3 size={18} /> Ручное значение</h2>
             </div>
           </div>
-          <ResidualPlot diagnostics={controller.diagnostics} />
+          <RegressionPredictionPanel
+            dataset={controller.dataset}
+            modelInfo={controller.modelInfo}
+            modelIsCurrent={controller.modelIsCurrent}
+            onPredict={controller.predictValue}
+          />
         </section>
 
         <section className="panel panel-wide">
@@ -90,7 +105,6 @@ function RegressionPage({ controller }) {
           <NetworkGraph
             config={controller.config}
             inputUnits={controller.modelInfo?.inputUnits ?? controller.dataset?.featureCount ?? 1}
-            parameters={controller.parameters}
           />
         </section>
 

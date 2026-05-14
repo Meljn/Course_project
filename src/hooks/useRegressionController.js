@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DEFAULT_REGRESSION_CONFIG, getRegressionModelSignature } from '../config/regressionConfig.js';
 import CSVDataLoader from '../core/CSVDataLoader.js';
-import { createRegressionDataset, createRegressionDatasetFromCsv } from '../core/regressionDatasets.js';
+import {
+  createRegressionDataset,
+  createRegressionDatasetFromCsv,
+  evaluateRegressionFunction,
+} from '../core/regressionDatasets.js';
 import { RegressionEngine } from '../core/regressionEngine.js';
 import { validateRegressionConfig } from '../utils/regressionValidation.js';
 
@@ -341,6 +345,22 @@ export function useRegressionController() {
     });
   }, [config, customDataset]);
 
+  const predictValue = useCallback(
+    (rawInput) => {
+      const activeDataset = getDatasetForConfig(config, customDataset) ?? dataset;
+      const predicted = engineRef.current.predictRaw(rawInput, activeDataset);
+      const actual =
+        config.datasetType === 'custom' ? null : evaluateRegressionFunction(config.datasetType, Number(rawInput[0]));
+
+      return {
+        predicted,
+        actual,
+        residual: actual === null ? null : actual - predicted,
+      };
+    },
+    [config, customDataset, dataset],
+  );
+
   return {
     config,
     updateConfig,
@@ -361,5 +381,6 @@ export function useRegressionController() {
     startTraining,
     stopTraining,
     resetTraining,
+    predictValue,
   };
 }

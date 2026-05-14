@@ -23,7 +23,7 @@ function hashDataset(data, columnNames, scaleY) {
   return (hash >>> 0).toString(16);
 }
 
-function targetFunction(type, x) {
+export function evaluateRegressionFunction(type, x) {
   if (type === 'polynomial') {
     return x ** 3 - 2 * x ** 2 + x;
   }
@@ -169,7 +169,7 @@ export function createRegressionDataset({
   for (let index = 0; index < count; index += 1) {
     const progress = count <= 1 ? 0 : index / (count - 1);
     const x = minX + progress * (maxX - minX);
-    const y = targetFunction(type, x) + (random() * 2 - 1) * Number(noise);
+    const y = evaluateRegressionFunction(type, x) + (random() * 2 - 1) * Number(noise);
     rawFeatures.push([x]);
     rawTargets.push(y);
   }

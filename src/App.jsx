@@ -151,7 +151,6 @@ function App() {
             <NetworkGraph
               config={controller.config}
               inputUnits={controller.modelInfo?.inputUnits ?? controller.dataset?.featureCount ?? 2}
-              parameters={controller.parameters}
             />
           </section>
 

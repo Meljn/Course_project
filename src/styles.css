@@ -666,32 +666,67 @@ select:disabled {
   color: var(--muted);
 }
 
-.layer-label,
-.neuron-label,
-.chart-label,
-.weight-label {
-  fill: var(--muted);
+.prediction-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.prediction-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.prediction-button {
+  width: 100%;
+}
+
+.prediction-result {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.prediction-result div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 7px;
+  background: #11141b;
+  padding: 10px;
+}
+
+.prediction-result span {
+  color: var(--muted);
   font-size: 12px;
   font-weight: 760;
 }
 
-.weight-label-bg {
-  fill: rgba(15, 16, 20, 0.82);
-  stroke: rgba(255, 255, 255, 0.12);
-  stroke-width: 1;
+.prediction-result strong {
+  color: var(--text);
+  font-size: 16px;
+  overflow-wrap: anywhere;
 }
 
-.weight-label {
-  fill: var(--muted-strong);
-  font-size: 10px;
+.layer-label,
+.neuron-label,
+.chart-label {
+  fill: var(--muted);
+  font-size: 12px;
   font-weight: 760;
-  pointer-events: none;
 }
 
 .neuron {
   fill: #151821;
   stroke: var(--accent-2);
   stroke-width: 2.3;
+}
+
+.network-connection {
+  stroke: #536071;
+  stroke-width: 1.35;
+  stroke-opacity: 0.34;
 }
 
 .neuron-input {
@@ -1038,6 +1073,8 @@ select:disabled {
   .sidebar,
   .dataset-toolbar,
   .form-grid,
+  .prediction-grid,
+  .prediction-result,
   .status-strip__row,
   .weights-content {
     grid-template-columns: 1fr;
