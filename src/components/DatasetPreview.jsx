@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Upload } from 'lucide-react';
 import { DATASET_OPTIONS, LIMITS } from '../config/trainingConfig.js';
 
 const WIDTH = 360;
@@ -80,18 +80,21 @@ function createDecisionImage(decisionGrid) {
 function DatasetPreview({
   config,
   dataset,
+  customDatasetInfo,
   decisionGrid,
   disabled,
   validation,
   onGenerate,
+  onUploadCsv,
   onUpdate,
 }) {
   const points = dataset?.all ?? [];
+  const isCustomDataset = config.datasetType === 'custom';
   const decisionImage = useMemo(() => createDecisionImage(decisionGrid), [decisionGrid]);
 
   return (
     <div className="dataset-preview">
-      <div className="dataset-toolbar">
+      <div className={`dataset-toolbar ${isCustomDataset ? 'dataset-toolbar--custom' : ''}`}>
         <label className="field dataset-field">
           <span>Датасет</span>
           <select
@@ -107,38 +110,72 @@ function DatasetPreview({
           </select>
         </label>
 
-        <label className="field dataset-field">
-          <span>Точки</span>
-          <input
-            type="number"
-            min={LIMITS.minSampleCount}
-            max={LIMITS.maxSampleCount}
-            value={config.sampleCount}
-            disabled={disabled}
-            onChange={(event) => onUpdate({ sampleCount: event.target.value })}
-          />
-          <FieldError message={validation.errors.sampleCount} />
-        </label>
+        {isCustomDataset ? (
+          <button type="button" className="panel-action dataset-generate" onClick={onUploadCsv} disabled={disabled}>
+            <Upload size={16} />
+            Загрузить CSV
+          </button>
+        ) : (
+          <>
+            <label className="field dataset-field">
+              <span>Точки</span>
+              <input
+                type="number"
+                min={LIMITS.minSampleCount}
+                max={LIMITS.maxSampleCount}
+                value={config.sampleCount}
+                disabled={disabled}
+                onChange={(event) => onUpdate({ sampleCount: event.target.value })}
+              />
+              <FieldError message={validation.errors.sampleCount} />
+            </label>
 
-        <label className="field dataset-field dataset-field-wide">
-          <span>Шум: {Number(config.noise).toFixed(2)}</span>
-          <input
-            type="range"
-            min={LIMITS.minNoise}
-            max={LIMITS.maxNoise}
-            step="0.01"
-            value={config.noise}
-            disabled={disabled}
-            onChange={(event) => onUpdate({ noise: Number(event.target.value) })}
-          />
-          <FieldError message={validation.errors.noise} />
-        </label>
+            <label className="field dataset-field dataset-field-wide">
+              <span>Шум: {Number(config.noise).toFixed(2)}</span>
+              <input
+                type="range"
+                min={LIMITS.minNoise}
+                max={LIMITS.maxNoise}
+                step="0.01"
+                value={config.noise}
+                disabled={disabled}
+                onChange={(event) => onUpdate({ noise: Number(event.target.value) })}
+              />
+              <FieldError message={validation.errors.noise} />
+            </label>
 
-        <button type="button" className="panel-action dataset-generate" onClick={onGenerate} disabled={disabled}>
-          <RefreshCw size={16} />
-          Новые точки
-        </button>
+            <button type="button" className="panel-action dataset-generate" onClick={onGenerate} disabled={disabled}>
+              <RefreshCw size={16} />
+              Новые точки
+            </button>
+          </>
+        )}
       </div>
+
+      {isCustomDataset && (
+        <div className="custom-dataset-card">
+          {customDatasetInfo ? (
+            <>
+              <div className="custom-dataset-metrics">
+                <span>{customDatasetInfo.rowCount} строк</span>
+                <span>{customDatasetInfo.featureCount} признаков</span>
+                <span>train/test: {customDatasetInfo.trainCount}/{customDatasetInfo.testCount}</span>
+                <span>метка: {customDatasetInfo.labelColumnName}</span>
+              </div>
+              <div className="custom-dataset-stats">
+                {customDatasetInfo.stats.slice(0, 4).map((stat) => (
+                  <span key={stat.column}>
+                    {stat.column}: {stat.min.toFixed(2)}..{stat.max.toFixed(2)}
+                  </span>
+                ))}
+              </div>
+            </>
+          ) : (
+            <span className="custom-dataset-empty">CSV не загружен</span>
+          )}
+          <FieldError message={validation.errors.customDataset} />
+        </div>
+      )}
 
       <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label="Карта классификации учебных точек">
         <rect x={PADDING} y={PADDING} width={PLOT_WIDTH} height={PLOT_HEIGHT} className="plot-area" />

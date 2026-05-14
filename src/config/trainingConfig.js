@@ -13,6 +13,8 @@ export const LIMITS = {
   maxSampleCount: 800,
   minNoise: 0,
   maxNoise: 0.35,
+  minTargetAccuracy: 0.5,
+  maxTargetAccuracy: 1,
 };
 
 export const DEFAULT_CONFIG = {
@@ -20,9 +22,13 @@ export const DEFAULT_CONFIG = {
   activation: 'tanh',
   loss: 'binaryCrossentropy',
   optimizer: 'adam',
+  kernelInitializer: 'glorotUniform',
+  biasInitializer: 'zeros',
   learningRate: 0.03,
   epochs: 160,
   batchSize: 16,
+  stopByAccuracy: false,
+  targetAccuracy: 0.95,
   regularization: 'none',
   regularizationRate: 0.001,
   datasetType: 'xor',
@@ -49,6 +55,27 @@ export const OPTIMIZER_OPTIONS = [
   { value: 'rmsprop', label: 'RMSprop' },
 ];
 
+export const WEIGHT_INITIALIZER_OPTIONS = [
+  { value: 'glorotUniform', label: 'Glorot uniform' },
+  { value: 'glorotNormal', label: 'Glorot normal' },
+  { value: 'heUniform', label: 'He uniform' },
+  { value: 'heNormal', label: 'He normal' },
+  { value: 'leCunUniform', label: 'LeCun uniform' },
+  { value: 'leCunNormal', label: 'LeCun normal' },
+  { value: 'randomUniform', label: 'Random uniform' },
+  { value: 'randomNormal', label: 'Random normal' },
+  { value: 'truncatedNormal', label: 'Truncated normal' },
+  { value: 'zeros', label: 'Zeros' },
+];
+
+export const BIAS_INITIALIZER_OPTIONS = [
+  { value: 'zeros', label: 'Zeros' },
+  { value: 'ones', label: 'Ones' },
+  { value: 'randomUniform', label: 'Random uniform' },
+  { value: 'randomNormal', label: 'Random normal' },
+  { value: 'truncatedNormal', label: 'Truncated normal' },
+];
+
 export const REGULARIZATION_OPTIONS = [
   { value: 'none', label: 'Без регуляризации' },
   { value: 'l1', label: 'L1' },
@@ -60,6 +87,7 @@ export const DATASET_OPTIONS = [
   { value: 'xor', label: 'XOR' },
   { value: 'circle', label: 'Круг' },
   { value: 'linear', label: 'Линейный' },
+  { value: 'custom', label: 'CSV' },
 ];
 
 export function getModelSignature(config) {
@@ -68,6 +96,8 @@ export function getModelSignature(config) {
     activation: config.activation,
     loss: config.loss,
     optimizer: config.optimizer,
+    kernelInitializer: config.kernelInitializer,
+    biasInitializer: config.biasInitializer,
     learningRate: Number(config.learningRate),
     regularization: config.regularization,
     regularizationRate: Number(config.regularizationRate),

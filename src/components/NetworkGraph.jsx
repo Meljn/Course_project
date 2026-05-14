@@ -40,9 +40,9 @@ function connectionWidth(weight, maxAbs) {
   return 0.7 + (Math.abs(weight) / maxAbs) * 4.2;
 }
 
-function NetworkGraph({ config, parameters }) {
+function NetworkGraph({ config, inputUnits = 2, parameters }) {
   const layers = [
-    { label: 'Вход', count: 2 },
+    { label: 'Вход', count: Math.max(1, Math.trunc(Number(inputUnits)) || 1) },
     ...config.hiddenLayers.map((count, index) => ({ label: `Скрытый ${index + 1}`, count: Number(count) || 0 })),
     { label: 'Выход', count: 1 },
   ];

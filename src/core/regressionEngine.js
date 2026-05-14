@@ -1,4 +1,5 @@
 import * as tf from '@tensorflow/tfjs';
+import { inverseTransformTarget } from './regressionDatasets.js';
 
 function createRegularizer(config) {
   const rate = Number(config.regularizationRate);
@@ -38,11 +39,10 @@ function denseLayerName(index, totalLayers) {
   return `Скрытый слой ${index + 1}`;
 }
 
-export class NeuralNetworkEngine {
+export class RegressionEngine {
   constructor() {
     this.model = null;
-    this.inputUnits = 2;
-    this.isTraining = false;
+    this.inputUnits = 1;
     this.stopRequested = false;
   }
 
@@ -53,15 +53,14 @@ export class NeuralNetworkEngine {
     }
 
     this.model = null;
-    this.inputUnits = 2;
-    this.isTraining = false;
+    this.inputUnits = 1;
     this.stopRequested = false;
   }
 
-  createModel(config, inputUnits = 2) {
+  createModel(config, inputUnits = 1) {
     this.dispose();
 
-    const safeInputUnits = Math.max(2, Math.trunc(Number(inputUnits)) || 2);
+    const safeInputUnits = Math.max(1, Math.trunc(Number(inputUnits)) || 1);
     const hiddenLayers = config.hiddenLayers.map((neurons) => Number(neurons));
     const model = tf.sequential();
     const regularizer = createRegularizer(config);
@@ -85,7 +84,7 @@ export class NeuralNetworkEngine {
     model.add(
       tf.layers.dense({
         units: 1,
-        activation: 'sigmoid',
+        activation: 'linear',
         kernelInitializer,
         biasInitializer,
       }),
@@ -128,7 +127,7 @@ export class NeuralNetworkEngine {
         const biases = biasTensor ? await biasTensor.array() : [];
 
         return {
-          id: `dense-${index}`,
+          id: `regression-dense-${index}`,
           name: denseLayerName(index, totalLayers),
           fromUnits: weights.length,
           toUnits: biases.length,
@@ -139,58 +138,26 @@ export class NeuralNetworkEngine {
     );
   }
 
-  evaluateAccuracy(xs, ys) {
-    if (!this.model) {
-      return 0;
+  getDiagnostics(inputs, rawTargets, yScaler) {
+    if (!this.model || inputs.length === 0) {
+      return [];
     }
 
-    const predictionTensor = this.model.predict(xs);
-    const predictions = Array.from(predictionTensor.dataSync());
-    const labels = Array.from(ys.dataSync());
-    predictionTensor.dispose();
-
-    const correct = predictions.reduce((total, value, index) => {
-      const predictedLabel = value >= 0.5 ? 1 : 0;
-      return total + (predictedLabel === labels[index] ? 1 : 0);
-    }, 0);
-
-    return correct / Math.max(labels.length, 1);
-  }
-
-  getDecisionGrid(resolution = 96, baselineFeatures = []) {
-    if (!this.model) {
-      return null;
-    }
-
-    const size = Math.max(24, Math.min(Number(resolution) || 96, 128));
-    const baseline = Array.from({ length: this.inputUnits }, (_, index) => {
-      const value = Number(baselineFeatures[index]);
-      return Number.isFinite(value) ? value : 0;
-    });
-    const points = [];
-
-    for (let row = 0; row < size; row += 1) {
-      const y = 1 - (row / Math.max(size - 1, 1)) * 2;
-
-      for (let column = 0; column < size; column += 1) {
-        const x = -1 + (column / Math.max(size - 1, 1)) * 2;
-        const input = [...baseline];
-        input[0] = x;
-        input[1] = y;
-        points.push(input);
-      }
-    }
-
-    const inputTensor = tf.tensor2d(points, [points.length, this.inputUnits]);
+    const inputTensor = tf.tensor2d(inputs, [inputs.length, this.inputUnits]);
     const predictionTensor = this.model.predict(inputTensor);
-    const probabilities = Array.from(predictionTensor.dataSync());
+    const predictions = Array.from(predictionTensor.dataSync()).map((value) => inverseTransformTarget(value, yScaler));
     inputTensor.dispose();
     predictionTensor.dispose();
 
-    return {
-      resolution: size,
-      probabilities,
-    };
+    return rawTargets.map((actual, index) => {
+      const predicted = predictions[index];
+
+      return {
+        actual,
+        predicted,
+        residual: actual - predicted,
+      };
+    });
   }
 
   async train(config, dataset, callbacks = {}) {
@@ -198,18 +165,15 @@ export class NeuralNetworkEngine {
       throw new Error('Модель еще не создана.');
     }
 
-    this.isTraining = true;
     this.stopRequested = false;
     this.model.stopTraining = false;
 
-    const trainXs = tf.tensor2d(dataset.train.inputs);
+    const trainXs = tf.tensor2d(dataset.train.inputs, [dataset.train.inputs.length, this.inputUnits]);
     const trainYs = tf.tensor2d(dataset.train.labels);
-    const testXs = tf.tensor2d(dataset.test.inputs);
-    const testYs = tf.tensor2d(dataset.test.labels);
+    const validationXs = tf.tensor2d(dataset.validation.inputs, [dataset.validation.inputs.length, this.inputUnits]);
+    const validationYs = tf.tensor2d(dataset.validation.labels);
     const epochs = Number(config.epochs);
     const batchSize = Number(config.batchSize);
-    const shouldStopByAccuracy = Boolean(config.stopByAccuracy);
-    const targetAccuracy = Number(config.targetAccuracy);
     const parameterInterval = epochs > 500 ? 8 : epochs > 250 ? 4 : 1;
 
     try {
@@ -222,39 +186,27 @@ export class NeuralNetworkEngine {
           epochs: 1,
           batchSize,
           shuffle: true,
-          validationData: [testXs, testYs],
+          validationData: [validationXs, validationYs],
           verbose: 0,
         });
 
         const loss = result.history.loss?.[0] ?? null;
         const valLoss = result.history.val_loss?.[0] ?? null;
-        const accuracy = this.evaluateAccuracy(testXs, testYs);
         const shouldUpdateParameters =
           epoch === 0 || epoch + 1 === epochs || (epoch + 1) % parameterInterval === 0;
         const parameters = shouldUpdateParameters ? await this.getParameters() : null;
-        const decisionGrid = this.getDecisionGrid(96, dataset.decisionBaseline);
+        const diagnostics = this.getDiagnostics(dataset.validation.inputs, dataset.validation.rawTargets, dataset.yScaler);
 
         callbacks.onEpochEnd?.({
           epoch: epoch + 1,
           loss,
           valLoss,
-          accuracy,
           parameters,
-          decisionGrid,
+          diagnostics,
         });
 
         if (this.stopRequested) {
           break;
-        }
-
-        if (shouldStopByAccuracy && Number.isFinite(targetAccuracy) && accuracy >= targetAccuracy) {
-          await tf.nextFrame();
-          return {
-            status: 'accuracy-reached',
-            epoch: epoch + 1,
-            accuracy,
-            targetAccuracy,
-          };
         }
 
         await tf.nextFrame();
@@ -266,9 +218,8 @@ export class NeuralNetworkEngine {
     } finally {
       trainXs.dispose();
       trainYs.dispose();
-      testXs.dispose();
-      testYs.dispose();
-      this.isTraining = false;
+      validationXs.dispose();
+      validationYs.dispose();
       this.model.stopTraining = false;
     }
   }

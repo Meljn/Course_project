@@ -1,62 +1,35 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { DEFAULT_CONFIG, getModelSignature } from '../config/trainingConfig.js';
+import { DEFAULT_REGRESSION_CONFIG, getRegressionModelSignature } from '../config/regressionConfig.js';
 import CSVDataLoader from '../core/CSVDataLoader.js';
-import { EMPTY_DATASET, createCustomDatasetFromCsv } from '../core/customDataset.js';
-import { createDataset } from '../core/datasets.js';
-import { NeuralNetworkEngine } from '../core/neuralNetworkEngine.js';
-import { validateTrainingConfig } from '../utils/validation.js';
+import { createRegressionDataset, createRegressionDatasetFromCsv } from '../core/regressionDatasets.js';
+import { RegressionEngine } from '../core/regressionEngine.js';
+import { validateRegressionConfig } from '../utils/regressionValidation.js';
 
-const initialTrainingState = {
+const initialRegressionState = {
   status: 'idle',
   label: 'Модель не создана',
   currentEpoch: 0,
   loss: null,
   valLoss: null,
-  accuracy: null,
-  message: 'Настройте параметры и создайте нейросеть.',
+  message: 'Настройте параметры регрессии и создайте модель.',
 };
 
 function createDatasetForConfig(config) {
-  return createDataset({
+  return createRegressionDataset({
     type: config.datasetType,
     sampleCount: Number(config.sampleCount),
     noise: Number(config.noise),
     seed: Number(config.datasetSeed) || 42,
+    scaleY: Boolean(config.scaleY),
   });
 }
 
 function getDatasetForConfig(config, customDataset) {
   if (config.datasetType === 'custom') {
-    return customDataset ?? EMPTY_DATASET;
+    return customDataset;
   }
 
   return createDatasetForConfig(config);
-}
-
-function withCustomValidation(config, customDataset) {
-  const check = validateTrainingConfig(config);
-  const errors = { ...check.errors };
-
-  if (config.datasetType === 'custom') {
-    delete errors.sampleCount;
-    delete errors.noise;
-
-    if (errors.batchSize === 'Размер батча не может превышать количество примеров.') {
-      delete errors.batchSize;
-    }
-
-    if (!customDataset) {
-      errors.customDataset = 'Загрузите CSV-датасет перед созданием модели.';
-    }
-  }
-
-  const messages = Object.values(errors);
-
-  return {
-    errors,
-    messages,
-    isValid: messages.length === 0,
-  };
 }
 
 function toNumber(value) {
@@ -67,26 +40,36 @@ function toNumber(value) {
   return Number(value);
 }
 
-export function useTrainingController() {
+export function useRegressionController() {
   const engineRef = useRef(null);
   const modelSignatureRef = useRef('');
-  const [config, setConfig] = useState(DEFAULT_CONFIG);
-  const [dataset, setDataset] = useState(() => createDatasetForConfig(DEFAULT_CONFIG));
-  const [customDataset, setCustomDataset] = useState(null);
+  const [config, setConfig] = useState(DEFAULT_REGRESSION_CONFIG);
+  const [customSource, setCustomSource] = useState(null);
+  const customDataset = useMemo(() => {
+    if (!customSource) {
+      return null;
+    }
+
+    return createRegressionDatasetFromCsv(customSource.data, customSource.columnNames, {
+      seed: Number(config.datasetSeed) || 42,
+      scaleY: Boolean(config.scaleY),
+    });
+  }, [config.datasetSeed, config.scaleY, customSource]);
+  const [dataset, setDataset] = useState(() => createDatasetForConfig(DEFAULT_REGRESSION_CONFIG));
   const [history, setHistory] = useState([]);
+  const [diagnostics, setDiagnostics] = useState([]);
   const [parameters, setParameters] = useState([]);
-  const [decisionGrid, setDecisionGrid] = useState(null);
   const [modelInfo, setModelInfo] = useState(null);
-  const [trainingState, setTrainingState] = useState(initialTrainingState);
+  const [trainingState, setTrainingState] = useState(initialRegressionState);
 
   if (!engineRef.current) {
-    engineRef.current = new NeuralNetworkEngine();
+    engineRef.current = new RegressionEngine();
   }
 
-  const validation = useMemo(() => withCustomValidation(config, customDataset), [config, customDataset]);
+  const validation = useMemo(() => validateRegressionConfig(config, customDataset), [config, customDataset]);
   const currentSignature = useMemo(() => {
     const customSignature = config.datasetType === 'custom' ? customDataset?.signature ?? 'missing' : '';
-    return `${getModelSignature(config)}|custom:${customSignature}`;
+    return `${getRegressionModelSignature(config)}|custom:${customSignature}`;
   }, [config, customDataset]);
   const modelIsCurrent = modelInfo && modelSignatureRef.current === currentSignature;
   const isTraining = trainingState.status === 'training' || trainingState.status === 'stopping';
@@ -98,10 +81,14 @@ export function useTrainingController() {
   }, []);
 
   useEffect(() => {
-    setDataset(getDatasetForConfig(config, customDataset));
+    const nextDataset = getDatasetForConfig(config, customDataset);
+
+    if (nextDataset) {
+      setDataset(nextDataset);
+    }
 
     if (!isTraining && modelInfo && modelSignatureRef.current !== currentSignature) {
-      setDecisionGrid(null);
+      setDiagnostics([]);
       setTrainingState((state) => ({
         ...state,
         status: 'dirty',
@@ -123,7 +110,7 @@ export function useTrainingController() {
 
     setConfig((previous) => {
       const safeCount = Number.isFinite(nextCount) ? nextCount : previous.hiddenLayers.length;
-      const nextLayers = Array.from({ length: Math.max(safeCount, 0) }, (_, index) => previous.hiddenLayers[index] ?? 4);
+      const nextLayers = Array.from({ length: Math.max(safeCount, 0) }, (_, index) => previous.hiddenLayers[index] ?? 8);
 
       return {
         ...previous,
@@ -150,7 +137,7 @@ export function useTrainingController() {
       datasetSeed: Date.now(),
     }));
     setHistory([]);
-    setDecisionGrid(null);
+    setDiagnostics([]);
   }, []);
 
   const uploadCsvDataset = useCallback(async () => {
@@ -172,17 +159,21 @@ export function useTrainingController() {
         return;
       }
 
-      const nextDataset = createCustomDatasetFromCsv(result.data, result.columnNames, {
+      const nextDataset = createRegressionDatasetFromCsv(result.data, result.columnNames, {
         seed: Number(config.datasetSeed) || 42,
+        scaleY: Boolean(config.scaleY),
       });
 
       engineRef.current.dispose();
       modelSignatureRef.current = '';
-      setCustomDataset(nextDataset);
+      setCustomSource({
+        data: result.data,
+        columnNames: result.columnNames,
+      });
       setDataset(nextDataset);
       setModelInfo(null);
       setParameters([]);
-      setDecisionGrid(null);
+      setDiagnostics([]);
       setHistory([]);
       setConfig((previous) => ({
         ...previous,
@@ -194,19 +185,17 @@ export function useTrainingController() {
         currentEpoch: 0,
         loss: null,
         valLoss: null,
-        accuracy: null,
-        message: `Строк: ${nextDataset.rowCount}. Признаков: ${nextDataset.featureCount}. Метка: ${nextDataset.labelColumnName}.`,
+        message: `Строк: ${nextDataset.rowCount}. Признаков: ${nextDataset.featureCount}. Цель: ${nextDataset.targetColumnName}.`,
       });
     } catch (error) {
-      const message = error.message || 'Не удалось загрузить CSV-датасет.';
       setTrainingState((state) => ({
         ...state,
         status: 'invalid',
         label: 'Ошибка CSV',
-        message,
+        message: error.message || 'Не удалось загрузить CSV-датасет.',
       }));
     }
-  }, [config.datasetSeed]);
+  }, [config.datasetSeed, config.scaleY]);
 
   const createModel = useCallback(async () => {
     const check = validation;
@@ -222,14 +211,18 @@ export function useTrainingController() {
     }
 
     const nextDataset = getDatasetForConfig(config, customDataset);
+
+    if (!nextDataset) {
+      return false;
+    }
+
     const nextInfo = engineRef.current.createModel(config, nextDataset.featureCount);
     const nextParameters = await engineRef.current.getParameters();
-    const nextDecisionGrid = engineRef.current.getDecisionGrid(96, nextDataset.decisionBaseline);
 
     setDataset(nextDataset);
     setModelInfo(nextInfo);
     setParameters(nextParameters);
-    setDecisionGrid(nextDecisionGrid);
+    setDiagnostics([]);
     setHistory([]);
     modelSignatureRef.current = currentSignature;
     setTrainingState({
@@ -238,7 +231,6 @@ export function useTrainingController() {
       currentEpoch: 0,
       loss: null,
       valLoss: null,
-      accuracy: null,
       message: `Параметров модели: ${nextInfo.trainableParams}.`,
     });
 
@@ -250,14 +242,12 @@ export function useTrainingController() {
       return;
     }
 
-    const check = validation;
-
-    if (!check.isValid) {
+    if (!validation.isValid) {
       setTrainingState((state) => ({
         ...state,
         status: 'invalid',
         label: 'Ошибка параметров',
-        message: check.messages[0],
+        message: validation.messages[0],
       }));
       return;
     }
@@ -274,39 +264,34 @@ export function useTrainingController() {
 
     const nextDataset = getDatasetForConfig(config, customDataset);
     setDataset(nextDataset);
-    setDecisionGrid(engineRef.current.getDecisionGrid(96, nextDataset.decisionBaseline));
     setHistory([]);
+    setDiagnostics([]);
     setTrainingState({
       status: 'training',
       label: 'Обучение идет',
       currentEpoch: 0,
       loss: null,
       valLoss: null,
-      accuracy: null,
-      message: 'TensorFlow.js обучает модель в браузере.',
+      message: 'TensorFlow.js обучает регрессионную модель в браузере.',
     });
 
     try {
       const result = await engineRef.current.train(config, nextDataset, {
-        onEpochEnd: ({ epoch, loss, valLoss, accuracy, parameters: nextParameters, decisionGrid: nextDecisionGrid }) => {
-          const point = { epoch, loss, valLoss, accuracy };
+        onEpochEnd: ({ epoch, loss, valLoss, parameters: nextParameters, diagnostics: nextDiagnostics }) => {
+          const point = { epoch, loss, valLoss };
           setHistory((previous) => [...previous, point]);
 
           if (nextParameters) {
             setParameters(nextParameters);
           }
 
-          if (nextDecisionGrid) {
-            setDecisionGrid(nextDecisionGrid);
-          }
-
+          setDiagnostics(nextDiagnostics);
           setTrainingState({
             status: 'training',
             label: 'Обучение идет',
             currentEpoch: epoch,
             loss,
             valLoss,
-            accuracy,
             message: `Эпоха ${epoch} из ${config.epochs}.`,
           });
         },
@@ -315,18 +300,11 @@ export function useTrainingController() {
       setTrainingState((state) => ({
         ...state,
         status: result.status,
-        label:
-          result.status === 'completed'
-            ? 'Обучение завершено'
-            : result.status === 'accuracy-reached'
-              ? 'Целевая точность достигнута'
-              : 'Обучение остановлено',
+        label: result.status === 'completed' ? 'Обучение завершено' : 'Обучение остановлено',
         message:
           result.status === 'completed'
             ? 'Модель прошла заданное количество эпох.'
-            : result.status === 'accuracy-reached'
-              ? `Точность достигла ${Math.round(Number(result.accuracy) * 100)}% на эпохе ${result.epoch}.`
-              : 'Процесс остановлен пользователем.',
+            : 'Процесс остановлен пользователем.',
       }));
     } catch (error) {
       setTrainingState((state) => ({
@@ -353,13 +331,13 @@ export function useTrainingController() {
     modelSignatureRef.current = '';
     setModelInfo(null);
     setParameters([]);
-    setDecisionGrid(null);
+    setDiagnostics([]);
     setHistory([]);
-    setDataset(getDatasetForConfig(config, customDataset));
+    setDataset(getDatasetForConfig(config, customDataset) ?? createDatasetForConfig(config));
     setTrainingState({
-      ...initialTrainingState,
+      ...initialRegressionState,
       label: 'Состояние сброшено',
-      message: 'Можно создать новую модель.',
+      message: 'Можно создать новую регрессионную модель.',
     });
   }, [config, customDataset]);
 
@@ -372,8 +350,7 @@ export function useTrainingController() {
     uploadCsvDataset,
     validation,
     dataset,
-    customDatasetInfo: customDataset,
-    decisionGrid,
+    diagnostics,
     history,
     parameters,
     modelInfo,
