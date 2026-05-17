@@ -32,11 +32,15 @@ function WeightsPanel({ parameters }) {
 
             <div className="bias-list">
               <strong>Смещения</strong>
-              <div>
-                {layer.biases.map((value, index) => (
-                  <span key={`${layer.id}-bias-${index}`}>b{index + 1}: {formatMetric(value, 3)}</span>
-                ))}
-              </div>
+              {layer.biases.length > 0 ? (
+                <div>
+                  {layer.biases.map((value, index) => (
+                    <span key={`${layer.id}-bias-${index}`}>b{index + 1}: {formatMetric(value, 3)}</span>
+                  ))}
+                </div>
+              ) : (
+                <p>Смещения отключены для этого слоя.</p>
+              )}
             </div>
           </div>
         </details>

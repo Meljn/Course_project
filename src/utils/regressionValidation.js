@@ -44,7 +44,7 @@ export function validateRegressionConfig(config, dataset) {
     errors.kernelInitializer = 'Выберите допустимую инициализацию весов.';
   }
 
-  if (!biasInitializerValues.has(config.biasInitializer)) {
+  if (config.useBias !== false && !biasInitializerValues.has(config.biasInitializer)) {
     errors.biasInitializer = 'Выберите допустимую инициализацию смещений.';
   }
 

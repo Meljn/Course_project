@@ -294,6 +294,74 @@ select:disabled {
   margin-bottom: 12px;
 }
 
+.settings-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-section {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  overflow: visible;
+}
+
+.settings-section__header {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 10px 11px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-section__header span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.settings-section__header strong {
+  font-size: 13px;
+  font-weight: 820;
+}
+
+.settings-section__header small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 680;
+  line-height: 1.25;
+}
+
+.settings-section__header svg {
+  flex: 0 0 auto;
+  color: var(--muted);
+  transition: transform 160ms ease, color 160ms ease;
+}
+
+.settings-section.is-open .settings-section__header svg {
+  color: var(--accent);
+  transform: rotate(180deg);
+}
+
+.settings-section__body {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 11px;
+}
+
+.settings-section__body .form-block,
+.settings-section__body .form-grid {
+  margin-top: 0;
+}
+
 .form-block,
 .form-grid {
   margin-top: 12px;
@@ -1014,6 +1082,13 @@ select:disabled {
   font-size: 12px;
   font-weight: 760;
   font-variant-numeric: tabular-nums;
+}
+
+.bias-list p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .state-card {

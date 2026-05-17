@@ -9,6 +9,7 @@ import {
   REGULARIZATION_OPTIONS,
   WEIGHT_INITIALIZER_OPTIONS,
 } from '../config/regressionConfig.js';
+import SettingsSection from './SettingsSection.jsx';
 
 const HELP_CONTENT = {
   panel: {
@@ -64,6 +65,16 @@ const HELP_CONTENT = {
       'Glorot/Xavier хорошо подходит для tanh и sigmoid.',
       'He часто используют с ReLU.',
       'Zeros для весов обычно плохой учебный вариант: нейроны стартуют одинаковыми.',
+    ],
+  },
+  useBias: {
+    title: 'Смещения в слоях',
+    description:
+      'Смещение добавляется к сумме входов нейрона и помогает модели сдвигать аппроксимируемую функцию вверх, вниз или относительно внутренних границ активаций.',
+    items: [
+      'Включено: у каждого нейрона есть обучаемое смещение.',
+      'Выключено: слой использует только веса, поэтому параметров меньше.',
+      'В регрессии отсутствие смещений может заметно ограничить сдвиг функции.',
     ],
   },
   biasInitializer: {
@@ -235,6 +246,8 @@ function RegressionConfigPanel({
   onLayerCountChange,
   onLayerNeuronsChange,
 }) {
+  const isBiasEnabled = config.useBias !== false;
+
   return (
     <section className="config-panel">
       <div className="panel-title">
@@ -245,176 +258,203 @@ function RegressionConfigPanel({
         </h2>
       </div>
 
-      <div className="form-block">
-        <div className="field">
-          <FieldLabel help={HELP_CONTENT.hiddenLayers}>Количество скрытых слоев</FieldLabel>
-          <input
-            type="number"
-            min={REGRESSION_LIMITS.minHiddenLayers}
-            max={REGRESSION_LIMITS.maxHiddenLayers}
-            value={config.hiddenLayers.length}
-            disabled={isTraining}
-            onChange={(event) => onLayerCountChange(event.target.value)}
-          />
-          <FieldError message={validation.errors.hiddenLayers} />
-        </div>
-
-        <div className="layer-list">
-          {config.hiddenLayers.map((neurons, index) => (
-            <div className="layer-stepper" key={`regression-layer-${index}`}>
-              <span>Слой {index + 1}</span>
-              <button
-                type="button"
-                aria-label={`Уменьшить нейроны в слое ${index + 1}`}
-                disabled={isTraining || Number(neurons) <= REGRESSION_LIMITS.minNeurons}
-                onClick={() => onLayerNeuronsChange(index, Number(neurons) - 1)}
-              >
-                <Minus size={16} />
-              </button>
+      <div className="settings-stack">
+        <SettingsSection title="Архитектура" defaultOpen>
+          <div className="form-block">
+            <div className="field">
+              <FieldLabel help={HELP_CONTENT.hiddenLayers}>Количество скрытых слоев</FieldLabel>
               <input
                 type="number"
-                min={REGRESSION_LIMITS.minNeurons}
-                max={REGRESSION_LIMITS.maxNeurons}
-                value={neurons}
+                min={REGRESSION_LIMITS.minHiddenLayers}
+                max={REGRESSION_LIMITS.maxHiddenLayers}
+                value={config.hiddenLayers.length}
                 disabled={isTraining}
-                onChange={(event) => onLayerNeuronsChange(index, event.target.value)}
+                onChange={(event) => onLayerCountChange(event.target.value)}
               />
-              <button
-                type="button"
-                aria-label={`Увеличить нейроны в слое ${index + 1}`}
-                disabled={isTraining || Number(neurons) >= REGRESSION_LIMITS.maxNeurons}
-                onClick={() => onLayerNeuronsChange(index, Number(neurons) + 1)}
-              >
-                <Plus size={16} />
-              </button>
-              <FieldError message={validation.errors[`layer-${index}`]} />
+              <FieldError message={validation.errors.hiddenLayers} />
             </div>
-          ))}
-        </div>
-      </div>
 
-      <div className="form-grid">
-        <SelectField
-          label="Функция активации"
-          help={HELP_CONTENT.activation}
-          value={config.activation}
-          options={ACTIVATION_OPTIONS}
-          disabled={isTraining}
-          onChange={(value) => onUpdate({ activation: value })}
-        />
-        <SelectField
-          label="Функция потерь"
-          help={HELP_CONTENT.loss}
-          value={config.loss}
-          options={REGRESSION_LOSS_OPTIONS}
-          disabled={isTraining}
-          onChange={(value) => onUpdate({ loss: value })}
-        />
-        <SelectField
-          label="Оптимизатор"
-          help={HELP_CONTENT.optimizer}
-          value={config.optimizer}
-          options={OPTIMIZER_OPTIONS}
-          disabled={isTraining}
-          onChange={(value) => onUpdate({ optimizer: value })}
-        />
-      </div>
+            <div className="layer-list">
+              {config.hiddenLayers.map((neurons, index) => (
+                <div className="layer-stepper" key={`regression-layer-${index}`}>
+                  <span>Слой {index + 1}</span>
+                  <button
+                    type="button"
+                    aria-label={`Уменьшить нейроны в слое ${index + 1}`}
+                    disabled={isTraining || Number(neurons) <= REGRESSION_LIMITS.minNeurons}
+                    onClick={() => onLayerNeuronsChange(index, Number(neurons) - 1)}
+                  >
+                    <Minus size={16} />
+                  </button>
+                  <input
+                    type="number"
+                    min={REGRESSION_LIMITS.minNeurons}
+                    max={REGRESSION_LIMITS.maxNeurons}
+                    value={neurons}
+                    disabled={isTraining}
+                    onChange={(event) => onLayerNeuronsChange(index, event.target.value)}
+                  />
+                  <button
+                    type="button"
+                    aria-label={`Увеличить нейроны в слое ${index + 1}`}
+                    disabled={isTraining || Number(neurons) >= REGRESSION_LIMITS.maxNeurons}
+                    onClick={() => onLayerNeuronsChange(index, Number(neurons) + 1)}
+                  >
+                    <Plus size={16} />
+                  </button>
+                  <FieldError message={validation.errors[`layer-${index}`]} />
+                </div>
+              ))}
+            </div>
+          </div>
 
-      <div className="form-grid">
-        <SelectField
-          label="Инициализация весов"
-          help={HELP_CONTENT.kernelInitializer}
-          value={config.kernelInitializer}
-          options={WEIGHT_INITIALIZER_OPTIONS}
-          disabled={isTraining}
-          errorMessage={validation.errors.kernelInitializer}
-          onChange={(value) => onUpdate({ kernelInitializer: value })}
-        />
-        <SelectField
-          label="Инициализация смещений"
-          help={HELP_CONTENT.biasInitializer}
-          value={config.biasInitializer}
-          options={BIAS_INITIALIZER_OPTIONS}
-          disabled={isTraining}
-          errorMessage={validation.errors.biasInitializer}
-          onChange={(value) => onUpdate({ biasInitializer: value })}
-        />
-      </div>
-
-      <div className="form-grid">
-        <div className="field">
-          <FieldLabel help={HELP_CONTENT.learningRate}>Скорость обучения</FieldLabel>
-          <input
-            type="number"
-            min={REGRESSION_LIMITS.minLearningRate}
-            max={REGRESSION_LIMITS.maxLearningRate}
-            step="0.0001"
-            value={config.learningRate}
-            disabled={isTraining}
-            onChange={(event) => onUpdate({ learningRate: event.target.value })}
-          />
-          <FieldError message={validation.errors.learningRate} />
-        </div>
-        <div className="field">
-          <FieldLabel help={HELP_CONTENT.epochs}>Количество эпох</FieldLabel>
-          <input
-            type="number"
-            min={REGRESSION_LIMITS.minEpochs}
-            max={REGRESSION_LIMITS.maxEpochs}
-            value={config.epochs}
-            disabled={isTraining}
-            onChange={(event) => onUpdate({ epochs: event.target.value })}
-          />
-          <FieldError message={validation.errors.epochs} />
-        </div>
-        <div className="field">
-          <FieldLabel help={HELP_CONTENT.batchSize}>Размер батча</FieldLabel>
-          <input
-            type="number"
-            min={REGRESSION_LIMITS.minBatchSize}
-            max={REGRESSION_LIMITS.maxBatchSize}
-            value={config.batchSize}
-            disabled={isTraining}
-            onChange={(event) => onUpdate({ batchSize: event.target.value })}
-          />
-          <FieldError message={validation.errors.batchSize} />
-        </div>
-        <div className="field">
-          <FieldLabel help={HELP_CONTENT.scaleY}>Scale Y</FieldLabel>
-          <label className="toggle-row">
-            <input
-              type="checkbox"
-              checked={Boolean(config.scaleY)}
+          <div className="form-grid">
+            <SelectField
+              label="Функция активации"
+              help={HELP_CONTENT.activation}
+              value={config.activation}
+              options={ACTIVATION_OPTIONS}
               disabled={isTraining}
-              onChange={(event) => onUpdate({ scaleY: event.target.checked })}
+              onChange={(value) => onUpdate({ activation: value })}
             />
-            <span>{config.scaleY ? 'Включено' : 'Выключено'}</span>
-          </label>
-        </div>
-      </div>
+          </div>
+        </SettingsSection>
 
-      <div className="form-grid">
-        <SelectField
-          label="Метод регуляризации"
-          help={HELP_CONTENT.regularization}
-          value={config.regularization}
-          options={REGULARIZATION_OPTIONS}
-          disabled={isTraining}
-          onChange={(value) => onUpdate({ regularization: value })}
-        />
-        <div className="field">
-          <FieldLabel help={HELP_CONTENT.regularizationRate}>Коэффициент</FieldLabel>
-          <input
-            type="number"
-            min="0.00001"
-            max="0.1"
-            step="0.0001"
-            value={config.regularizationRate}
-            disabled={isTraining || config.regularization === 'none'}
-            onChange={(event) => onUpdate({ regularizationRate: event.target.value })}
-          />
-          <FieldError message={validation.errors.regularizationRate} />
-        </div>
+        <SettingsSection title="Обучение" defaultOpen>
+          <div className="form-grid">
+            <SelectField
+              label="Функция потерь"
+              help={HELP_CONTENT.loss}
+              value={config.loss}
+              options={REGRESSION_LOSS_OPTIONS}
+              disabled={isTraining}
+              onChange={(value) => onUpdate({ loss: value })}
+            />
+            <SelectField
+              label="Оптимизатор"
+              help={HELP_CONTENT.optimizer}
+              value={config.optimizer}
+              options={OPTIMIZER_OPTIONS}
+              disabled={isTraining}
+              onChange={(value) => onUpdate({ optimizer: value })}
+            />
+            <div className="field">
+              <FieldLabel help={HELP_CONTENT.learningRate}>Скорость обучения</FieldLabel>
+              <input
+                type="number"
+                min={REGRESSION_LIMITS.minLearningRate}
+                max={REGRESSION_LIMITS.maxLearningRate}
+                step="0.0001"
+                value={config.learningRate}
+                disabled={isTraining}
+                onChange={(event) => onUpdate({ learningRate: event.target.value })}
+              />
+              <FieldError message={validation.errors.learningRate} />
+            </div>
+            <div className="field">
+              <FieldLabel help={HELP_CONTENT.epochs}>Количество эпох</FieldLabel>
+              <input
+                type="number"
+                min={REGRESSION_LIMITS.minEpochs}
+                max={REGRESSION_LIMITS.maxEpochs}
+                value={config.epochs}
+                disabled={isTraining}
+                onChange={(event) => onUpdate({ epochs: event.target.value })}
+              />
+              <FieldError message={validation.errors.epochs} />
+            </div>
+            <div className="field">
+              <FieldLabel help={HELP_CONTENT.batchSize}>Размер батча</FieldLabel>
+              <input
+                type="number"
+                min={REGRESSION_LIMITS.minBatchSize}
+                max={REGRESSION_LIMITS.maxBatchSize}
+                value={config.batchSize}
+                disabled={isTraining}
+                onChange={(event) => onUpdate({ batchSize: event.target.value })}
+              />
+              <FieldError message={validation.errors.batchSize} />
+            </div>
+          </div>
+        </SettingsSection>
+
+        <SettingsSection title="Инициализация">
+          <div className="form-grid">
+            <SelectField
+              label="Инициализация весов"
+              help={HELP_CONTENT.kernelInitializer}
+              value={config.kernelInitializer}
+              options={WEIGHT_INITIALIZER_OPTIONS}
+              disabled={isTraining}
+              errorMessage={validation.errors.kernelInitializer}
+              onChange={(value) => onUpdate({ kernelInitializer: value })}
+            />
+            <div className="field">
+              <FieldLabel help={HELP_CONTENT.useBias}>Смещения в слоях</FieldLabel>
+              <label className="toggle-row">
+                <input
+                  type="checkbox"
+                  checked={isBiasEnabled}
+                  disabled={isTraining}
+                  onChange={(event) => onUpdate({ useBias: event.target.checked })}
+                />
+                <span>{isBiasEnabled ? 'Включены' : 'Отключены'}</span>
+              </label>
+            </div>
+            <SelectField
+              label="Инициализация смещений"
+              help={HELP_CONTENT.biasInitializer}
+              value={config.biasInitializer}
+              options={BIAS_INITIALIZER_OPTIONS}
+              disabled={isTraining || !isBiasEnabled}
+              errorMessage={validation.errors.biasInitializer}
+              onChange={(value) => onUpdate({ biasInitializer: value })}
+            />
+          </div>
+        </SettingsSection>
+
+        <SettingsSection title="Предобработка">
+          <div className="form-grid">
+            <div className="field">
+              <FieldLabel help={HELP_CONTENT.scaleY}>Scale Y</FieldLabel>
+              <label className="toggle-row">
+                <input
+                  type="checkbox"
+                  checked={Boolean(config.scaleY)}
+                  disabled={isTraining}
+                  onChange={(event) => onUpdate({ scaleY: event.target.checked })}
+                />
+                <span>{config.scaleY ? 'Включено' : 'Выключено'}</span>
+              </label>
+            </div>
+          </div>
+        </SettingsSection>
+
+        <SettingsSection title="Регуляризация">
+          <div className="form-grid">
+            <SelectField
+              label="Метод регуляризации"
+              help={HELP_CONTENT.regularization}
+              value={config.regularization}
+              options={REGULARIZATION_OPTIONS}
+              disabled={isTraining}
+              onChange={(value) => onUpdate({ regularization: value })}
+            />
+            <div className="field">
+              <FieldLabel help={HELP_CONTENT.regularizationRate}>Коэффициент</FieldLabel>
+              <input
+                type="number"
+                min="0.00001"
+                max="0.1"
+                step="0.0001"
+                value={config.regularizationRate}
+                disabled={isTraining || config.regularization === 'none'}
+                onChange={(event) => onUpdate({ regularizationRate: event.target.value })}
+              />
+              <FieldError message={validation.errors.regularizationRate} />
+            </div>
+          </div>
+        </SettingsSection>
       </div>
     </section>
   );

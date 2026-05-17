@@ -40,8 +40,7 @@ function App() {
     <div className="app-shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">React + TensorFlow.js</p>
-          <h1>{activePage === 'regression' ? 'Регрессия нейронной сетью' : 'Визуализация обучения нейронной сети'}</h1>
+          <h1>Визуализация и динамика обучения нейросети</h1>
           <nav className="page-switcher" aria-label="Разделы приложения">
             <button
               type="button"

@@ -66,6 +66,7 @@ export class NeuralNetworkEngine {
     const model = tf.sequential();
     const regularizer = createRegularizer(config);
     const kernelInitializer = config.kernelInitializer || 'glorotUniform';
+    const useBias = config.useBias !== false;
     const biasInitializer = config.biasInitializer || 'zeros';
     this.inputUnits = safeInputUnits;
 
@@ -76,6 +77,7 @@ export class NeuralNetworkEngine {
           inputShape: index === 0 ? [safeInputUnits] : undefined,
           activation: config.activation,
           kernelInitializer,
+          useBias,
           biasInitializer,
           kernelRegularizer: regularizer,
         }),
@@ -87,6 +89,7 @@ export class NeuralNetworkEngine {
         units: 1,
         activation: 'sigmoid',
         kernelInitializer,
+        useBias,
         biasInitializer,
       }),
     );
@@ -126,12 +129,13 @@ export class NeuralNetworkEngine {
         const [kernelTensor, biasTensor] = layer.getWeights();
         const weights = kernelTensor ? await kernelTensor.array() : [];
         const biases = biasTensor ? await biasTensor.array() : [];
+        const toUnits = weights[0]?.length ?? biases.length;
 
         return {
           id: `dense-${index}`,
           name: denseLayerName(index, totalLayers),
           fromUnits: weights.length,
-          toUnits: biases.length,
+          toUnits,
           weights,
           biases,
         };

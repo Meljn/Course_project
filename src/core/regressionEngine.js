@@ -65,6 +65,7 @@ export class RegressionEngine {
     const model = tf.sequential();
     const regularizer = createRegularizer(config);
     const kernelInitializer = config.kernelInitializer || 'glorotUniform';
+    const useBias = config.useBias !== false;
     const biasInitializer = config.biasInitializer || 'zeros';
     this.inputUnits = safeInputUnits;
 
@@ -75,6 +76,7 @@ export class RegressionEngine {
           inputShape: index === 0 ? [safeInputUnits] : undefined,
           activation: config.activation,
           kernelInitializer,
+          useBias,
           biasInitializer,
           kernelRegularizer: regularizer,
         }),
@@ -86,6 +88,7 @@ export class RegressionEngine {
         units: 1,
         activation: 'linear',
         kernelInitializer,
+        useBias,
         biasInitializer,
       }),
     );
@@ -125,12 +128,13 @@ export class RegressionEngine {
         const [kernelTensor, biasTensor] = layer.getWeights();
         const weights = kernelTensor ? await kernelTensor.array() : [];
         const biases = biasTensor ? await biasTensor.array() : [];
+        const toUnits = weights[0]?.length ?? biases.length;
 
         return {
           id: `regression-dense-${index}`,
           name: denseLayerName(index, totalLayers),
           fromUnits: weights.length,
-          toUnits: biases.length,
+          toUnits,
           weights,
           biases,
         };

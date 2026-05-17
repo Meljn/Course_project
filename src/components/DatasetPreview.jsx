@@ -9,12 +9,27 @@ const PLOT_WIDTH = WIDTH - PADDING * 2;
 const PLOT_HEIGHT = HEIGHT - PADDING * 2;
 const DECISION_IMAGE_WIDTH = 240;
 const DECISION_IMAGE_HEIGHT = Math.round((DECISION_IMAGE_WIDTH * PLOT_HEIGHT) / PLOT_WIDTH);
+const TRAIN_POINT_RADIUS = 3.5;
+const TEST_POINT_RADIUS = 4.7;
+const POINT_STROKE_WIDTH = 1.4;
+const POINT_EDGE_GAP = 0.8;
 
 const NEGATIVE_COLOR = [245, 158, 11];
 const POSITIVE_COLOR = [25, 195, 125];
 
-function scale(value, size) {
-  return PADDING + ((value + 1) / 2) * (size - PADDING * 2);
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function getPointRadius(point) {
+  return point.split === 'train' ? TRAIN_POINT_RADIUS : TEST_POINT_RADIUS;
+}
+
+function scale(value, size, radius = 0) {
+  const scaledValue = PADDING + ((value + 1) / 2) * (size - PADDING * 2);
+  const inset = radius + POINT_STROKE_WIDTH / 2 + POINT_EDGE_GAP;
+
+  return clamp(scaledValue, PADDING + inset, size - PADDING - inset);
 }
 
 function FieldError({ message }) {
@@ -201,16 +216,20 @@ function DatasetPreview({
 
         <line x1={WIDTH / 2} y1={PADDING} x2={WIDTH / 2} y2={HEIGHT - PADDING} className="plot-axis" />
         <line x1={PADDING} y1={HEIGHT / 2} x2={WIDTH - PADDING} y2={HEIGHT / 2} className="plot-axis" />
-        {points.map((point, index) => (
-          <circle
-            key={`${point.x}-${point.y}-${index}`}
-            cx={scale(point.x, WIDTH)}
-            cy={HEIGHT - scale(point.y, HEIGHT)}
-            r={point.split === 'train' ? 3.5 : 4.7}
-            className={point.label === 1 ? 'point point-positive' : 'point point-negative'}
-            opacity={point.split === 'train' ? 0.82 : 1}
-          />
-        ))}
+        {points.map((point, index) => {
+          const radius = getPointRadius(point);
+
+          return (
+            <circle
+              key={`${point.x}-${point.y}-${index}`}
+              cx={scale(point.x, WIDTH, radius)}
+              cy={HEIGHT - scale(point.y, HEIGHT, radius)}
+              r={radius}
+              className={point.label === 1 ? 'point point-positive' : 'point point-negative'}
+              opacity={point.split === 'train' ? 0.82 : 1}
+            />
+          );
+        })}
       </svg>
 
       <div className="legend-row">
