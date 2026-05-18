@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DEFAULT_CONFIG, getModelSignature } from '../config/trainingConfig.js';
 import CSVDataLoader from '../core/CSVDataLoader.js';
-import { EMPTY_DATASET, createCustomDatasetFromCsv } from '../core/customDataset.js';
+import { EMPTY_DATASET, createCustomDatasetFromConfiguredCsv } from '../core/customDataset.js';
 import { createDataset } from '../core/datasets.js';
 import { NeuralNetworkEngine } from '../core/neuralNetworkEngine.js';
 import { validateTrainingConfig } from '../utils/validation.js';
@@ -47,6 +47,8 @@ function withCustomValidation(config, customDataset) {
 
     if (!customDataset) {
       errors.customDataset = 'Загрузите CSV-датасет перед созданием модели.';
+    } else if (Number(config.batchSize) > customDataset.rowCount) {
+      errors.batchSize = 'Размер батча не может превышать количество примеров.';
     }
   }
 
@@ -73,6 +75,7 @@ export function useTrainingController() {
   const [config, setConfig] = useState(DEFAULT_CONFIG);
   const [dataset, setDataset] = useState(() => createDatasetForConfig(DEFAULT_CONFIG));
   const [customDataset, setCustomDataset] = useState(null);
+  const [pendingCsvUpload, setPendingCsvUpload] = useState(null);
   const [history, setHistory] = useState([]);
   const [parameters, setParameters] = useState([]);
   const [decisionGrid, setDecisionGrid] = useState(null);
@@ -172,22 +175,7 @@ export function useTrainingController() {
         return;
       }
 
-      const nextDataset = createCustomDatasetFromCsv(result.data, result.columnNames, {
-        seed: Number(config.datasetSeed) || 42,
-      });
-
-      engineRef.current.dispose();
-      modelSignatureRef.current = '';
-      setCustomDataset(nextDataset);
-      setDataset(nextDataset);
-      setModelInfo(null);
-      setParameters([]);
-      setDecisionGrid(null);
-      setHistory([]);
-      setConfig((previous) => ({
-        ...previous,
-        datasetType: 'custom',
-      }));
+      setPendingCsvUpload(result);
       setTrainingState({
         status: 'ready',
         label: 'CSV загружен',
@@ -195,7 +183,7 @@ export function useTrainingController() {
         loss: null,
         valLoss: null,
         accuracy: null,
-        message: `Строк: ${nextDataset.rowCount}. Признаков: ${nextDataset.featureCount}. Метка: ${nextDataset.labelColumnName}.`,
+        message: 'Настройте столбцы датасета и нажмите OK, чтобы создать модель.',
       });
     } catch (error) {
       const message = error.message || 'Не удалось загрузить CSV-датасет.';
@@ -206,7 +194,55 @@ export function useTrainingController() {
         message,
       }));
     }
-  }, [config.datasetSeed]);
+  }, []);
+
+  const cancelCsvDatasetSetup = useCallback(() => {
+    setPendingCsvUpload(null);
+  }, []);
+
+  const confirmCsvDatasetSetup = useCallback(
+    async (preparedDataset) => {
+      const nextDataset = createCustomDatasetFromConfiguredCsv(preparedDataset, {
+        seed: Number(config.datasetSeed) || 42,
+      });
+      const nextConfig = {
+        ...config,
+        datasetType: 'custom',
+      };
+      const nextSignature = `${getModelSignature(nextConfig)}|custom:${nextDataset.signature}`;
+
+      engineRef.current.dispose();
+      modelSignatureRef.current = '';
+
+      const nextInfo = engineRef.current.createModel(
+        nextConfig,
+        nextDataset.featureCount,
+        nextDataset.outputUnits,
+      );
+      const nextParameters = await engineRef.current.getParameters();
+      const nextDecisionGrid = null;
+
+      setPendingCsvUpload(null);
+      setCustomDataset(nextDataset);
+      setDataset(nextDataset);
+      setModelInfo(nextInfo);
+      setParameters(nextParameters);
+      setDecisionGrid(nextDecisionGrid);
+      setHistory([]);
+      setConfig(nextConfig);
+      modelSignatureRef.current = nextSignature;
+      setTrainingState({
+        status: 'ready',
+        label: 'CSV-модель создана',
+        currentEpoch: 0,
+        loss: null,
+        valLoss: null,
+        accuracy: null,
+        message: `Строк: ${nextDataset.rowCount}. Признаков после кодирования: ${nextDataset.featureCount}. Классов: ${nextDataset.classCount}.`,
+      });
+    },
+    [config],
+  );
 
   const createModel = useCallback(async () => {
     const check = validation;
@@ -222,9 +258,10 @@ export function useTrainingController() {
     }
 
     const nextDataset = getDatasetForConfig(config, customDataset);
-    const nextInfo = engineRef.current.createModel(config, nextDataset.featureCount);
+    const nextInfo = engineRef.current.createModel(config, nextDataset.featureCount, nextDataset.outputUnits ?? 1);
     const nextParameters = await engineRef.current.getParameters();
-    const nextDecisionGrid = engineRef.current.getDecisionGrid(96, nextDataset.decisionBaseline);
+    const nextDecisionGrid =
+      nextDataset.type === 'custom' ? null : engineRef.current.getDecisionGrid(96, nextDataset.decisionBaseline);
 
     setDataset(nextDataset);
     setModelInfo(nextInfo);
@@ -274,7 +311,7 @@ export function useTrainingController() {
 
     const nextDataset = getDatasetForConfig(config, customDataset);
     setDataset(nextDataset);
-    setDecisionGrid(engineRef.current.getDecisionGrid(96, nextDataset.decisionBaseline));
+    setDecisionGrid(nextDataset.type === 'custom' ? null : engineRef.current.getDecisionGrid(96, nextDataset.decisionBaseline));
     setHistory([]);
     setTrainingState({
       status: 'training',
@@ -363,6 +400,14 @@ export function useTrainingController() {
     });
   }, [config, customDataset]);
 
+  const predictValue = useCallback(
+    (rawInput) => {
+      const activeDataset = getDatasetForConfig(config, customDataset);
+      return engineRef.current.predictRaw(rawInput, activeDataset);
+    },
+    [config, customDataset],
+  );
+
   return {
     config,
     updateConfig,
@@ -370,6 +415,9 @@ export function useTrainingController() {
     setLayerNeurons,
     generateDataset,
     uploadCsvDataset,
+    pendingCsvUpload,
+    confirmCsvDatasetSetup,
+    cancelCsvDatasetSetup,
     validation,
     dataset,
     customDatasetInfo: customDataset,
@@ -384,5 +432,6 @@ export function useTrainingController() {
     startTraining,
     stopTraining,
     resetTraining,
+    predictValue,
   };
 }

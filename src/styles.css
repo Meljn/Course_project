@@ -202,6 +202,30 @@ select:disabled {
   background: #20242c;
 }
 
+.primary-button,
+.secondary-button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  padding: 8px 13px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.primary-button {
+  border: 1px solid rgba(16, 163, 127, 0.72);
+  background: var(--accent);
+  color: #07110e;
+}
+
+.secondary-button {
+  border: 1px solid var(--border);
+  background: #171a22;
+  color: var(--muted-strong);
+}
+
 .control-panel,
 .config-panel {
   padding: 14px;
@@ -631,6 +655,11 @@ select:disabled {
   overflow: hidden;
 }
 
+.dataset-preview--custom > svg,
+.dataset-preview--custom > .legend-row {
+  display: none;
+}
+
 .network-viewport svg,
 .chart-wrap svg,
 .dataset-preview svg {
@@ -734,9 +763,184 @@ select:disabled {
   color: var(--muted);
 }
 
+.modal-backdrop {
+  position: fixed;
+  z-index: 80;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(5, 7, 11, 0.72);
+  padding: 20px;
+}
+
+.csv-modal {
+  display: grid;
+  width: min(980px, 100%);
+  max-height: min(860px, calc(100vh - 40px));
+  overflow: auto;
+  gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #171a22;
+  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.42);
+  padding: 16px;
+}
+
+.csv-modal__header,
+.csv-modal__actions,
+.csv-modal__summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.csv-modal__header {
+  justify-content: space-between;
+}
+
+.csv-modal__header h2 {
+  margin: 3px 0 0;
+  color: var(--text);
+  font-size: 20px;
+}
+
+.modal-close {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: #11141b;
+  color: var(--muted-strong);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.csv-modal__summary {
+  flex-wrap: wrap;
+}
+
+.csv-modal__summary > span {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  border: 1px solid #2c323e;
+  border-radius: 999px;
+  background: #11141b;
+  padding: 4px 10px;
+  color: var(--muted-strong);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.csv-config-grid {
+  display: grid;
+  grid-template-columns: minmax(170px, 1.2fr) minmax(150px, 0.9fr) minmax(160px, 1fr) minmax(170px, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+}
+
+.csv-config-grid__head {
+  background: #11141b;
+  padding: 9px 10px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 820;
+  text-transform: uppercase;
+}
+
+.csv-config-row {
+  display: contents;
+}
+
+.csv-config-row > * {
+  min-width: 0;
+  border-top: 1px solid var(--border-soft);
+  padding: 10px;
+}
+
+.csv-config-row.is-target > * {
+  background: rgba(16, 163, 127, 0.06);
+}
+
+.csv-name-field {
+  gap: 5px;
+}
+
+.csv-role {
+  display: flex;
+  align-items: center;
+  color: var(--muted-strong);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.field small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.csv-preview-table {
+  display: grid;
+  gap: 8px;
+}
+
+.csv-preview-table strong {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 820;
+  text-transform: uppercase;
+}
+
+.csv-preview-table div {
+  max-width: 100%;
+  overflow: auto;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+}
+
+.csv-preview-table table {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+}
+
+.csv-preview-table td {
+  border: 1px solid var(--border-soft);
+  padding: 7px 9px;
+  color: var(--muted-strong);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.modal-error {
+  border: 1px solid rgba(255, 107, 107, 0.36);
+  border-radius: 8px;
+  background: rgba(255, 107, 107, 0.08);
+  padding: 10px 11px;
+  color: var(--red);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.csv-modal__actions {
+  justify-content: flex-end;
+}
+
 .prediction-panel {
   display: grid;
   gap: 12px;
+}
+
+.content-grid > .panel:has(.classification-prediction-panel) {
+  width: min(100%, 460px);
+  align-self: start;
+  justify-self: start;
+}
+
+.classification-prediction-panel {
+  max-width: 420px;
 }
 
 .prediction-grid {
@@ -775,6 +979,62 @@ select:disabled {
   color: var(--text);
   font-size: 16px;
   overflow-wrap: anywhere;
+}
+
+.classification-result {
+  display: grid;
+  gap: 10px;
+}
+
+.classification-result__main {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--border-soft);
+  border-radius: 7px;
+  background: #11141b;
+  padding: 11px;
+}
+
+.classification-result__main span,
+.class-probability span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.classification-result__main strong {
+  color: var(--text);
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+
+.class-probabilities {
+  display: grid;
+  gap: 8px;
+}
+
+.class-probability {
+  display: grid;
+  gap: 5px;
+}
+
+.class-probability span {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.class-probability strong {
+  color: var(--text);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.class-probability i {
+  display: block;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--accent);
 }
 
 .layer-label,
@@ -1169,5 +1429,44 @@ select:disabled {
   .panel-note {
     max-width: none;
     text-align: left;
+  }
+
+  .modal-backdrop {
+    align-items: stretch;
+    padding: 10px;
+  }
+
+  .csv-modal {
+    max-height: calc(100vh - 20px);
+    padding: 12px;
+  }
+
+  .csv-config-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    border: 0;
+    gap: 10px;
+  }
+
+  .csv-config-grid__head {
+    display: none;
+  }
+
+  .csv-config-row {
+    display: grid;
+    gap: 8px;
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    padding: 10px;
+  }
+
+  .csv-config-row > * {
+    border-top: 0;
+    padding: 0;
+  }
+
+  .csv-modal__actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
   }
 }

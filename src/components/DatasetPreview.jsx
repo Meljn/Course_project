@@ -16,6 +16,16 @@ const POINT_EDGE_GAP = 0.8;
 
 const NEGATIVE_COLOR = [245, 158, 11];
 const POSITIVE_COLOR = [25, 195, 125];
+const CLASS_COLORS = [
+  NEGATIVE_COLOR,
+  POSITIVE_COLOR,
+  [96, 165, 250],
+  [236, 72, 153],
+  [168, 85, 247],
+  [20, 184, 166],
+  [244, 114, 182],
+  [250, 204, 21],
+];
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
@@ -40,8 +50,16 @@ function FieldError({ message }) {
   return <span className="field-error">{message}</span>;
 }
 
-function probabilityAt(decisionGrid, x, y) {
-  const { resolution, probabilities } = decisionGrid;
+function getColorCss(color) {
+  return `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+}
+
+function getClassColor(labelIndex) {
+  return getColorCss(CLASS_COLORS[Math.abs(Number(labelIndex) || 0) % CLASS_COLORS.length]);
+}
+
+function probabilityVectorAt(decisionGrid, x, y) {
+  const { resolution, probabilities, outputUnits = 1 } = decisionGrid;
   const gx = x * (resolution - 1);
   const gy = y * (resolution - 1);
   const x0 = Math.floor(gx);
@@ -50,14 +68,29 @@ function probabilityAt(decisionGrid, x, y) {
   const y1 = Math.min(y0 + 1, resolution - 1);
   const tx = gx - x0;
   const ty = gy - y0;
-  const p00 = probabilities[y0 * resolution + x0] ?? 0.5;
-  const p10 = probabilities[y0 * resolution + x1] ?? p00;
-  const p01 = probabilities[y1 * resolution + x0] ?? p00;
-  const p11 = probabilities[y1 * resolution + x1] ?? p10;
-  const top = p00 * (1 - tx) + p10 * tx;
-  const bottom = p01 * (1 - tx) + p11 * tx;
+  if (outputUnits <= 1) {
+    const p00 = probabilities[y0 * resolution + x0] ?? 0.5;
+    const p10 = probabilities[y0 * resolution + x1] ?? p00;
+    const p01 = probabilities[y1 * resolution + x0] ?? p00;
+    const p11 = probabilities[y1 * resolution + x1] ?? p10;
+    const top = p00 * (1 - tx) + p10 * tx;
+    const bottom = p01 * (1 - tx) + p11 * tx;
+    const positiveProbability = top * (1 - ty) + bottom * ty;
 
-  return top * (1 - ty) + bottom * ty;
+    return [1 - positiveProbability, positiveProbability];
+  }
+
+  return Array.from({ length: outputUnits }, (_, classIndex) => {
+    const read = (row, column) => probabilities[(row * resolution + column) * outputUnits + classIndex] ?? 0;
+    const p00 = read(y0, x0);
+    const p10 = read(y0, x1);
+    const p01 = read(y1, x0);
+    const p11 = read(y1, x1);
+    const top = p00 * (1 - tx) + p10 * tx;
+    const bottom = p01 * (1 - tx) + p11 * tx;
+
+    return top * (1 - ty) + bottom * ty;
+  });
 }
 
 function createDecisionImage(decisionGrid) {
@@ -73,17 +106,19 @@ function createDecisionImage(decisionGrid) {
 
   for (let y = 0; y < canvas.height; y += 1) {
     for (let x = 0; x < canvas.width; x += 1) {
-      const probability = probabilityAt(
+      const probabilities = probabilityVectorAt(
         decisionGrid,
         x / Math.max(canvas.width - 1, 1),
         y / Math.max(canvas.height - 1, 1),
       );
-      const confidence = Math.abs(probability - 0.5) * 2;
+      const classIndex = probabilities.indexOf(Math.max(...probabilities));
+      const confidence = Math.max(...probabilities);
+      const color = CLASS_COLORS[classIndex % CLASS_COLORS.length];
       const offset = (y * canvas.width + x) * 4;
 
-      image.data[offset] = Math.round(NEGATIVE_COLOR[0] * (1 - probability) + POSITIVE_COLOR[0] * probability);
-      image.data[offset + 1] = Math.round(NEGATIVE_COLOR[1] * (1 - probability) + POSITIVE_COLOR[1] * probability);
-      image.data[offset + 2] = Math.round(NEGATIVE_COLOR[2] * (1 - probability) + POSITIVE_COLOR[2] * probability);
+      image.data[offset] = color[0];
+      image.data[offset + 1] = color[1];
+      image.data[offset + 2] = color[2];
       image.data[offset + 3] = Math.round(88 + confidence * 82);
     }
   }
@@ -105,10 +140,14 @@ function DatasetPreview({
 }) {
   const points = dataset?.all ?? [];
   const isCustomDataset = config.datasetType === 'custom';
-  const decisionImage = useMemo(() => createDecisionImage(decisionGrid), [decisionGrid]);
+  const classNames = dataset?.classNames ?? ['0', '1'];
+  const decisionImage = useMemo(
+    () => (isCustomDataset ? '' : createDecisionImage(decisionGrid)),
+    [decisionGrid, isCustomDataset],
+  );
 
   return (
-    <div className="dataset-preview">
+    <div className={`dataset-preview ${isCustomDataset ? 'dataset-preview--custom' : ''}`}>
       <div className={`dataset-toolbar ${isCustomDataset ? 'dataset-toolbar--custom' : ''}`}>
         <label className="field dataset-field">
           <span>Датасет</span>
@@ -207,7 +246,7 @@ function DatasetPreview({
           />
         )}
 
-        {decisionGrid && (
+        {decisionGrid && !isCustomDataset && (
           <path
             className="decision-midline"
             d={`M ${PADDING} ${HEIGHT / 2} H ${WIDTH - PADDING} M ${WIDTH / 2} ${PADDING} V ${HEIGHT - PADDING}`}
@@ -225,7 +264,8 @@ function DatasetPreview({
               cx={scale(point.x, WIDTH, radius)}
               cy={HEIGHT - scale(point.y, HEIGHT, radius)}
               r={radius}
-              className={point.label === 1 ? 'point point-positive' : 'point point-negative'}
+              className="point"
+              fill={getClassColor(point.label)}
               opacity={point.split === 'train' ? 0.82 : 1}
             />
           );
@@ -233,10 +273,11 @@ function DatasetPreview({
       </svg>
 
       <div className="legend-row">
-        <span><i className="legend-dot legend-dot-positive" /> класс 1</span>
-        <span><i className="legend-dot legend-dot-negative" /> класс 0</span>
-        <span><i className="legend-swatch legend-swatch-positive" /> область класса 1</span>
-        <span><i className="legend-swatch legend-swatch-negative" /> область класса 0</span>
+        {classNames.map((className, index) => (
+          <span key={`${className}-${index}`}>
+            <i className="legend-dot" style={{ backgroundColor: getClassColor(index) }} /> класс {className}
+          </span>
+        ))}
       </div>
     </div>
   );

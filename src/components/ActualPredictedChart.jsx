@@ -39,7 +39,7 @@ function ActualPredictedChart({ diagnostics }) {
 
   return (
     <div className="chart-wrap">
-      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label="Actual vs Predicted">
+      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label="Истинные и предсказанные значения">
         <line x1={PAD_LEFT} y1={PAD_TOP} x2={PAD_LEFT} y2={HEIGHT - PAD_BOTTOM} className="axis" />
         <line x1={PAD_LEFT} y1={HEIGHT - PAD_BOTTOM} x2={WIDTH - PAD_RIGHT} y2={HEIGHT - PAD_BOTTOM} className="axis" />
         <line
@@ -74,10 +74,10 @@ function ActualPredictedChart({ diagnostics }) {
           />
         ))}
         <text x={PAD_LEFT} y={HEIGHT - 12} className="chart-label">
-          true y
+          истинное y
         </text>
         <text x={WIDTH - PAD_RIGHT} y={HEIGHT - 12} textAnchor="end" className="chart-label">
-          predicted y
+          предсказанное y
         </text>
       </svg>
       <div className="legend-row">

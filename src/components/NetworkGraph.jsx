@@ -22,11 +22,11 @@ function getLayerPositions(layers) {
   });
 }
 
-function NetworkGraph({ config, inputUnits = 2 }) {
+function NetworkGraph({ config, inputUnits = 2, outputUnits = 1 }) {
   const layers = [
     { label: 'Вход', count: Math.max(1, Math.trunc(Number(inputUnits)) || 1) },
     ...config.hiddenLayers.map((count, index) => ({ label: `Скрытый ${index + 1}`, count: Number(count) || 0 })),
-    { label: 'Выход', count: 1 },
+    { label: 'Выход', count: Math.max(1, Math.trunc(Number(outputUnits)) || 1) },
   ];
   const positionedLayers = getLayerPositions(layers);
   const connections = positionedLayers.slice(0, -1).flatMap((layer, layerIndex) => {

@@ -200,3 +200,30 @@ export function createRegressionDatasetFromCsv(data, columnNames, options = {}) 
     scaleY: Boolean(options.scaleY),
   });
 }
+
+export function createRegressionDatasetFromConfiguredCsv(preparedDataset, options = {}) {
+  const rawFeatures = preparedDataset.rawFeatures ?? [];
+  const rawTargets = preparedDataset.rawTargets ?? [];
+  const featureColumnNames = preparedDataset.featureColumnNames ?? [];
+
+  if (!Array.isArray(rawFeatures) || rawFeatures.length < 10) {
+    throw new Error('CSV должен содержать минимум 10 строк данных.');
+  }
+
+  if (featureColumnNames.length === 0) {
+    throw new Error('Выберите хотя бы один независимый признак.');
+  }
+
+  const dataset = makeRegressionDataset(rawFeatures, rawTargets, [...featureColumnNames, preparedDataset.targetColumnName], {
+    type: 'custom',
+    seed: Number(options.seed) || 42,
+    scaleY: Boolean(options.scaleY),
+  });
+
+  return {
+    ...dataset,
+    signature: preparedDataset.signature ?? dataset.signature,
+    sourceColumnNames: [...(preparedDataset.columnNames ?? [])],
+    transforms: preparedDataset.transforms ?? [],
+  };
+}

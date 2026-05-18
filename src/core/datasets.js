@@ -64,6 +64,16 @@ export function createDataset({
 
   return {
     type,
+    signature: `${type}-${sampleCount}-${noise}-${seed}`,
+    featureCount: 2,
+    outputUnits: 1,
+    classCount: 2,
+    classNames: ['0', '1'],
+    featureColumnNames: ['x', 'y'],
+    rowCount: samples.length,
+    trainCount: trainSamples.length,
+    testCount: testSamples.length,
+    decisionBaseline: [0, 0],
     train: toTensorArrays(trainSamples),
     test: toTensorArrays(testSamples),
     all: samples.map((item, index) => ({

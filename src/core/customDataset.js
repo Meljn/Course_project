@@ -12,8 +12,8 @@ function createRandom(seed) {
   };
 }
 
-function hashDataset(data, columnNames) {
-  const source = JSON.stringify({ columnNames, data });
+function hashDataset(data, columnNames, extra = {}) {
+  const source = JSON.stringify({ columnNames, data, extra });
   let hash = 5381;
 
   for (let index = 0; index < source.length; index += 1) {
@@ -48,13 +48,21 @@ function normalizeValue(value, stat) {
 function toTensorArrays(items) {
   return {
     inputs: items.map((item) => item.input),
-    labels: items.map((item) => [item.label]),
+    labels: items.map((item) => (Array.isArray(item.label) ? item.label : [item.label])),
     points: items.map((item) => ({
-      x: item.input[0],
-      y: item.input[1],
-      label: item.label,
+      x: item.input[0] ?? 0,
+      y: item.input[1] ?? 0,
+      label: item.labelIndex ?? item.label,
     })),
   };
+}
+
+function getFeatureStats(rawFeatures, featureColumnNames) {
+  return featureColumnNames.map((columnName, columnIndex) => getColumnStats(rawFeatures, columnIndex, columnName));
+}
+
+function normalizeFeatureRows(rawFeatures, featureStats) {
+  return rawFeatures.map((row) => row.map((value, index) => normalizeValue(value, featureStats[index])));
 }
 
 export const EMPTY_DATASET = {
@@ -130,6 +138,9 @@ export function createCustomDatasetFromCsv(data, columnNames, options = {}) {
     featureColumnNames,
     labelColumnName,
     featureCount,
+    outputUnits: 1,
+    classCount: 2,
+    classNames: ['0', '1'],
     rowCount: samples.length,
     trainCount: trainSamples.length,
     testCount: testSamples.length,
@@ -141,6 +152,82 @@ export function createCustomDatasetFromCsv(data, columnNames, options = {}) {
       x: item.input[0],
       y: item.input[1],
       label: item.label,
+      split: index < splitIndex ? 'train' : 'test',
+    })),
+  };
+}
+
+export function createCustomDatasetFromConfiguredCsv(preparedDataset, options = {}) {
+  const trainRatio = options.trainRatio ?? DEFAULT_TRAIN_RATIO;
+  const seed = Number(options.seed) || 42;
+  const rawFeatures = preparedDataset.rawFeatures ?? [];
+  const featureColumnNames = preparedDataset.featureColumnNames ?? [];
+
+  if (!Array.isArray(rawFeatures) || rawFeatures.length < 10) {
+    throw new Error('CSV должен содержать минимум 10 строк данных.');
+  }
+
+  if (featureColumnNames.length === 0) {
+    throw new Error('Выберите хотя бы один независимый признак.');
+  }
+
+  const classCount = Number(preparedDataset.classCount) || 0;
+
+  if (classCount < 2) {
+    throw new Error('Для классификации нужно минимум два класса.');
+  }
+
+  const featureStats = getFeatureStats(rawFeatures, featureColumnNames);
+  const normalizedFeatures = normalizeFeatureRows(rawFeatures, featureStats);
+  const outputUnits = classCount > 2 ? classCount : 1;
+  const samples = normalizedFeatures.map((input, index) => {
+    const labelIndex = preparedDataset.classIndices[index];
+    const label =
+      outputUnits === 1
+        ? labelIndex
+        : Array.from({ length: classCount }, (_, classIndex) => (classIndex === labelIndex ? 1 : 0));
+
+    return {
+      input,
+      label,
+      labelIndex,
+    };
+  });
+
+  const random = createRandom(seed);
+
+  for (let index = samples.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [samples[index], samples[swapIndex]] = [samples[swapIndex], samples[index]];
+  }
+
+  const splitIndex = Math.min(samples.length - 1, Math.max(1, Math.floor(samples.length * trainRatio)));
+  const trainSamples = samples.slice(0, splitIndex);
+  const testSamples = samples.slice(splitIndex);
+  const decisionBaseline = featureStats.map((stat) => normalizeValue(stat.mean, stat));
+
+  return {
+    type: 'custom',
+    signature: preparedDataset.signature ?? hashDataset(rawFeatures, featureColumnNames, preparedDataset.classNames),
+    columnNames: [...(preparedDataset.columnNames ?? [])],
+    featureColumnNames: [...featureColumnNames],
+    labelColumnName: preparedDataset.targetColumnName,
+    featureCount: featureColumnNames.length,
+    outputUnits,
+    classCount,
+    classNames: [...preparedDataset.classNames],
+    rowCount: samples.length,
+    trainCount: trainSamples.length,
+    testCount: testSamples.length,
+    stats: featureStats,
+    transforms: preparedDataset.transforms ?? [],
+    decisionBaseline,
+    train: toTensorArrays(trainSamples),
+    test: toTensorArrays(testSamples),
+    all: samples.map((item, index) => ({
+      x: item.input[0] ?? 0,
+      y: item.input[1] ?? 0,
+      label: item.labelIndex,
       split: index < splitIndex ? 'train' : 'test',
     })),
   };

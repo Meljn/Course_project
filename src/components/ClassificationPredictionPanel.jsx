@@ -17,7 +17,7 @@ function getPredictionFields(dataset) {
       }
 
       const encodedIndex = dataset.featureColumnNames?.findIndex((name) => name === transform.sourceColumn) ?? index;
-      const fallbackValue = dataset.xScaler?.[encodedIndex]?.mean ?? 0;
+      const fallbackValue = dataset.stats?.[encodedIndex]?.mean ?? 0;
 
       return {
         key: `${transform.sourceColumn}-${index}`,
@@ -28,11 +28,11 @@ function getPredictionFields(dataset) {
     });
   }
 
-  return (dataset?.featureColumnNames ?? ['x']).map((name, index) => ({
+  return (dataset?.featureColumnNames ?? ['x', 'y']).map((name, index) => ({
     key: `${name}-${index}`,
     name,
     kind: 'continuous',
-    defaultValue: formatMetric(dataset?.xScaler?.[index]?.mean ?? 0, 3),
+    defaultValue: index === 0 || index === 1 ? '0' : '',
   }));
 }
 
@@ -73,7 +73,7 @@ function encodePredictionValues(fields, values) {
   return rawInput;
 }
 
-function RegressionPredictionPanel({ dataset, modelInfo, modelIsCurrent, onPredict }) {
+function ClassificationPredictionPanel({ dataset, modelInfo, modelIsCurrent, onPredict }) {
   const fields = useMemo(() => getPredictionFields(dataset), [dataset]);
   const [values, setValues] = useState([]);
   const [result, setResult] = useState(null);
@@ -105,7 +105,7 @@ function RegressionPredictionPanel({ dataset, modelInfo, modelIsCurrent, onPredi
   };
 
   return (
-    <div className="prediction-panel">
+    <div className="prediction-panel classification-prediction-panel">
       <div className="prediction-grid">
         {fields.map((field, index) => (
           <label className="field" key={field.key}>
@@ -137,28 +137,31 @@ function RegressionPredictionPanel({ dataset, modelInfo, modelIsCurrent, onPredi
 
       <button type="button" className="button button-primary prediction-button" disabled={!modelInfo} onClick={handlePredict}>
         <Calculator size={18} />
-        Предсказать
+        Предсказать класс
       </button>
 
-      {!modelInfo && <div className="validation-box">Создайте и обучите модель перед ручным предсказанием.</div>}
+      {!modelInfo && <div className="validation-box">Создайте модель перед ручным предсказанием.</div>}
       {modelInfo && !modelIsCurrent && (
         <div className="validation-box">Параметры изменены. Для актуального результата пересоздайте модель.</div>
       )}
       {error && <div className="validation-box" role="alert">{error}</div>}
 
       {result && (
-        <div className="prediction-result">
-          <div>
-            <span>Предсказание</span>
-            <strong>{formatMetric(result.predicted, 5)}</strong>
+        <div className="classification-result">
+          <div className="classification-result__main">
+            <span>Предсказанный класс</span>
+            <strong>{result.predictedClass}</strong>
           </div>
-          <div>
-            <span>Истинная функция</span>
-            <strong>{result.actual === null ? 'нет для CSV' : formatMetric(result.actual, 5)}</strong>
-          </div>
-          <div>
-            <span>Ошибка</span>
-            <strong>{result.residual === null ? 'нет данных' : formatMetric(result.residual, 5)}</strong>
+          <div className="class-probabilities">
+            {result.probabilities.map((item) => (
+              <div className="class-probability" key={item.className}>
+                <span>
+                  {item.className}
+                  <strong>{formatMetric(item.probability * 100, 1)}%</strong>
+                </span>
+                <i style={{ width: `${Math.max(0, Math.min(item.probability * 100, 100))}%` }} />
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -166,4 +169,4 @@ function RegressionPredictionPanel({ dataset, modelInfo, modelIsCurrent, onPredi
   );
 }
 
-export default RegressionPredictionPanel;
+export default ClassificationPredictionPanel;

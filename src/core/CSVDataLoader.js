@@ -5,7 +5,14 @@ const DEFAULT_OPTIONS = {
   tf: null,
 };
 
-function isFiniteNumberString(value) {
+export const CSV_LIMITS = {
+  minColumns: 2,
+  maxColumns: 5,
+  minRows: 10,
+  maxRows: 500,
+};
+
+export function isFiniteNumberString(value) {
   if (typeof value !== 'string') {
     return false;
   }
@@ -16,19 +23,14 @@ function isFiniteNumberString(value) {
     return false;
   }
 
-  const number = Number(trimmed);
-  return Number.isFinite(number);
+  return Number.isFinite(Number(trimmed));
 }
 
-function stripBom(value) {
-  return value.replace(/^\uFEFF/, '');
-}
-
-function makeDefaultColumnNames(columnCount) {
+export function makeDefaultColumnNames(columnCount) {
   return Array.from({ length: columnCount }, (_, index) => `column${index + 1}`);
 }
 
-function dedupeColumnNames(names) {
+export function dedupeColumnNames(names) {
   const usedNames = new Map();
 
   return names.map((rawName, index) => {
@@ -43,6 +45,10 @@ function dedupeColumnNames(names) {
 
     return `${baseName}_${count + 1}`;
   });
+}
+
+function stripBom(value) {
+  return value.replace(/^\uFEFF/, '');
 }
 
 function detectDelimiter(text) {
@@ -132,11 +138,11 @@ function normalizeRows(rows) {
     .filter((row) => Array.isArray(row))
     .map((row, rowIndex) =>
       row.map((value, columnIndex) => {
-        const stringValue = String(value ?? '');
+        const stringValue = String(value ?? '').trim();
         return rowIndex === 0 && columnIndex === 0 ? stripBom(stringValue) : stringValue;
       }),
     )
-    .filter((row) => row.some((value) => value.trim() !== ''));
+    .filter((row) => row.some((value) => value !== ''));
 }
 
 function detectHeader(firstRow) {
@@ -148,16 +154,35 @@ function detectHeader(firstRow) {
 
 function calculateStats(data, columnNames) {
   return columnNames.map((columnName, columnIndex) => {
-    const values = data.map((row) => row[columnIndex]);
-    const sum = values.reduce((total, value) => total + value, 0);
+    const numericValues = data
+      .map((row) => row[columnIndex])
+      .filter((value) => isFiniteNumberString(value))
+      .map((value) => Number(value));
+
+    if (numericValues.length !== data.length) {
+      return {
+        column: columnName,
+        min: null,
+        max: null,
+        mean: null,
+        numeric: false,
+      };
+    }
+
+    const sum = numericValues.reduce((total, value) => total + value, 0);
 
     return {
       column: columnName,
-      min: Math.min(...values),
-      max: Math.max(...values),
-      mean: sum / values.length,
+      min: Math.min(...numericValues),
+      max: Math.max(...numericValues),
+      mean: sum / numericValues.length,
+      numeric: true,
     };
   });
+}
+
+function getDataRows(rows, hasHeader) {
+  return hasHeader ? rows.slice(1) : rows;
 }
 
 export class CSVDataLoader {
@@ -169,6 +194,8 @@ export class CSVDataLoader {
 
     this.data = [];
     this.columnNames = [];
+    this.rawRows = [];
+    this.hasHeader = false;
     this.stats = [];
     this.featureShape = [0, 0];
     this.inputElement = null;
@@ -234,17 +261,21 @@ export class CSVDataLoader {
 
     const parsedRows = this.parse(csvText);
     const normalizedRows = normalizeRows(parsedRows);
-    const { data, columnNames } = this.validateAndTransform(normalizedRows);
+    const result = this.validateAndTransform(normalizedRows);
 
-    this.data = data;
-    this.columnNames = columnNames;
-    this.stats = calculateStats(data, columnNames);
-    this.featureShape = [data.length, columnNames.length];
+    this.data = result.data;
+    this.columnNames = result.columnNames;
+    this.rawRows = result.rawRows;
+    this.hasHeader = result.hasHeader;
+    this.stats = calculateStats(result.data, result.columnNames);
+    this.featureShape = [result.data.length, result.columnNames.length];
     this.lastError = null;
 
     return {
       data: this.getData(),
       columnNames: this.getColumnNames(),
+      rawRows: this.getRawRows(),
+      hasHeader: this.hasHeader,
       stats: this.getStats(),
       featureShape: this.getFeatureShape(),
     };
@@ -260,6 +291,10 @@ export class CSVDataLoader {
 
   getColumnNames() {
     return [...this.columnNames];
+  }
+
+  getRawRows() {
+    return this.rawRows.map((row) => [...row]);
   }
 
   getStats() {
@@ -303,55 +338,52 @@ export class CSVDataLoader {
 
   validateAndTransform(rows) {
     if (rows.length === 0) {
-      throw new Error('CSV-файл не содержит данных.');
+      throw new Error('CSV-файл не содержит данные.');
     }
 
     const columnCount = rows[0].length;
 
-    if (columnCount < 2) {
-      throw new Error('CSV должен содержать минимум 2 колонки.');
+    if (columnCount < CSV_LIMITS.minColumns) {
+      throw new Error(`CSV должен содержать минимум ${CSV_LIMITS.minColumns} колонки.`);
     }
 
-    rows.forEach((row, index) => {
+    if (columnCount > CSV_LIMITS.maxColumns) {
+      throw new Error(`CSV должен содержать не больше ${CSV_LIMITS.maxColumns} столбцов вместе с целевой колонкой.`);
+    }
+
+    rows.forEach((row, rowIndex) => {
       if (row.length !== columnCount) {
         throw new Error(
-          `Строка ${index + 1} содержит ${row.length} колонок, ожидалось ${columnCount}. Проверьте разделители CSV.`,
+          `Строка ${rowIndex + 1} содержит ${row.length} колонок, ожидалось ${columnCount}. Проверьте разделители CSV.`,
         );
       }
+
+      row.forEach((value, columnIndex) => {
+        if (String(value ?? '').trim() === '') {
+          throw new Error(`Пустая ячейка в строке ${rowIndex + 1}, колонка ${columnIndex + 1}.`);
+        }
+      });
     });
 
     const hasHeader = detectHeader(rows[0]);
-    const rawColumnNames = hasHeader ? rows[0] : makeDefaultColumnNames(columnCount);
-    const columnNames = dedupeColumnNames(rawColumnNames);
-    const dataRows = hasHeader ? rows.slice(1) : rows;
+    const dataRows = getDataRows(rows, hasHeader);
 
-    if (dataRows.length < 10) {
-      throw new Error('CSV должен содержать минимум 10 строк данных.');
+    if (rows.length < CSV_LIMITS.minRows && dataRows.length < CSV_LIMITS.minRows) {
+      throw new Error(`CSV должен содержать минимум ${CSV_LIMITS.minRows} строк данных.`);
     }
 
-    const data = dataRows.map((row, rowIndex) =>
-      row.map((value, columnIndex) => {
-        const trimmed = value.trim();
-        const readableRow = hasHeader ? rowIndex + 2 : rowIndex + 1;
-        const readableColumn = columnNames[columnIndex];
+    if (dataRows.length > CSV_LIMITS.maxRows) {
+      throw new Error(`CSV должен содержать не больше ${CSV_LIMITS.maxRows} строк данных.`);
+    }
 
-        if (trimmed === '') {
-          throw new Error(`Пустая ячейка в строке ${readableRow}, колонка "${readableColumn}".`);
-        }
-
-        if (!isFiniteNumberString(trimmed)) {
-          throw new Error(
-            `Некорректное числовое значение "${value}" в строке ${readableRow}, колонка "${readableColumn}". Допустимы только числа.`,
-          );
-        }
-
-        return Number(trimmed);
-      }),
-    );
+    const rawColumnNames = hasHeader ? rows[0] : makeDefaultColumnNames(columnCount);
+    const columnNames = dedupeColumnNames(rawColumnNames);
 
     return {
-      data,
+      rawRows: rows,
+      hasHeader,
       columnNames,
+      data: dataRows,
     };
   }
 
@@ -374,34 +406,3 @@ export class CSVDataLoader {
 }
 
 export default CSVDataLoader;
-
-/*
-Пример использования:
-
-import CSVDataLoader from './core/CSVDataLoader.js';
-
-const loader = new CSVDataLoader({
-  onLoadSuccess: (data, columnNames) => {
-    console.log('CSV загружен:', data);
-    console.log('Колонки:', columnNames);
-    console.log('Форма признаков:', loader.getFeatureShape());
-    console.log('Статистика:', loader.getStats());
-
-    // Если последняя колонка является целевой переменной:
-    // const xs = data.map((row) => row.slice(0, -1));
-    // const ys = data.map((row) => [row[row.length - 1]]);
-    // const inputTensor = tf.tensor2d(xs);
-    // const labelTensor = tf.tensor2d(ys);
-  },
-  onError: (errorMessage) => {
-    console.error(errorMessage);
-  },
-});
-
-document.querySelector('#uploadCsvButton').addEventListener('click', () => {
-  loader.upload();
-});
-
-// Также можно получить tf.data.Dataset, если TensorFlow.js подключен глобально:
-// const dataset = loader.getData({ format: 'tfDataset' });
-*/

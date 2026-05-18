@@ -74,7 +74,7 @@ function RegressionPage({ controller }) {
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Диагностика</p>
-              <h2><BarChart3 size={18} /> Actual vs Predicted</h2>
+              <h2><BarChart3 size={18} /> Истинные и предсказанные значения</h2>
             </div>
           </div>
           <ActualPredictedChart diagnostics={controller.diagnostics} />
@@ -105,6 +105,7 @@ function RegressionPage({ controller }) {
           <NetworkGraph
             config={controller.config}
             inputUnits={controller.modelInfo?.inputUnits ?? controller.dataset?.featureCount ?? 1}
+            outputUnits={controller.modelInfo?.outputUnits ?? 1}
           />
         </section>
 

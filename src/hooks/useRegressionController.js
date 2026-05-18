@@ -3,7 +3,7 @@ import { DEFAULT_REGRESSION_CONFIG, getRegressionModelSignature } from '../confi
 import CSVDataLoader from '../core/CSVDataLoader.js';
 import {
   createRegressionDataset,
-  createRegressionDatasetFromCsv,
+  createRegressionDatasetFromConfiguredCsv,
   evaluateRegressionFunction,
 } from '../core/regressionDatasets.js';
 import { RegressionEngine } from '../core/regressionEngine.js';
@@ -49,12 +49,13 @@ export function useRegressionController() {
   const modelSignatureRef = useRef('');
   const [config, setConfig] = useState(DEFAULT_REGRESSION_CONFIG);
   const [customSource, setCustomSource] = useState(null);
+  const [pendingCsvUpload, setPendingCsvUpload] = useState(null);
   const customDataset = useMemo(() => {
     if (!customSource) {
       return null;
     }
 
-    return createRegressionDatasetFromCsv(customSource.data, customSource.columnNames, {
+    return createRegressionDatasetFromConfiguredCsv(customSource, {
       seed: Number(config.datasetSeed) || 42,
       scaleY: Boolean(config.scaleY),
     });
@@ -163,33 +164,14 @@ export function useRegressionController() {
         return;
       }
 
-      const nextDataset = createRegressionDatasetFromCsv(result.data, result.columnNames, {
-        seed: Number(config.datasetSeed) || 42,
-        scaleY: Boolean(config.scaleY),
-      });
-
-      engineRef.current.dispose();
-      modelSignatureRef.current = '';
-      setCustomSource({
-        data: result.data,
-        columnNames: result.columnNames,
-      });
-      setDataset(nextDataset);
-      setModelInfo(null);
-      setParameters([]);
-      setDiagnostics([]);
-      setHistory([]);
-      setConfig((previous) => ({
-        ...previous,
-        datasetType: 'custom',
-      }));
+      setPendingCsvUpload(result);
       setTrainingState({
         status: 'ready',
         label: 'CSV загружен',
         currentEpoch: 0,
         loss: null,
         valLoss: null,
-        message: `Строк: ${nextDataset.rowCount}. Признаков: ${nextDataset.featureCount}. Цель: ${nextDataset.targetColumnName}.`,
+        message: 'Настройте столбцы датасета и нажмите OK, чтобы создать модель.',
       });
     } catch (error) {
       setTrainingState((state) => ({
@@ -199,7 +181,50 @@ export function useRegressionController() {
         message: error.message || 'Не удалось загрузить CSV-датасет.',
       }));
     }
-  }, [config.datasetSeed, config.scaleY]);
+  }, []);
+
+  const cancelCsvDatasetSetup = useCallback(() => {
+    setPendingCsvUpload(null);
+  }, []);
+
+  const confirmCsvDatasetSetup = useCallback(
+    async (preparedDataset) => {
+      const nextDataset = createRegressionDatasetFromConfiguredCsv(preparedDataset, {
+        seed: Number(config.datasetSeed) || 42,
+        scaleY: Boolean(config.scaleY),
+      });
+      const nextConfig = {
+        ...config,
+        datasetType: 'custom',
+      };
+      const nextSignature = `${getRegressionModelSignature(nextConfig)}|custom:${nextDataset.signature}`;
+
+      engineRef.current.dispose();
+      modelSignatureRef.current = '';
+
+      const nextInfo = engineRef.current.createModel(nextConfig, nextDataset.featureCount);
+      const nextParameters = await engineRef.current.getParameters();
+
+      setPendingCsvUpload(null);
+      setCustomSource(preparedDataset);
+      setDataset(nextDataset);
+      setModelInfo(nextInfo);
+      setParameters(nextParameters);
+      setDiagnostics([]);
+      setHistory([]);
+      setConfig(nextConfig);
+      modelSignatureRef.current = nextSignature;
+      setTrainingState({
+        status: 'ready',
+        label: 'CSV-модель создана',
+        currentEpoch: 0,
+        loss: null,
+        valLoss: null,
+        message: `Строк: ${nextDataset.rowCount}. Признаков после кодирования: ${nextDataset.featureCount}. Цель: ${nextDataset.targetColumnName}.`,
+      });
+    },
+    [config],
+  );
 
   const createModel = useCallback(async () => {
     const check = validation;
@@ -368,6 +393,9 @@ export function useRegressionController() {
     setLayerNeurons,
     generateDataset,
     uploadCsvDataset,
+    pendingCsvUpload,
+    confirmCsvDatasetSetup,
+    cancelCsvDatasetSetup,
     validation,
     dataset,
     diagnostics,

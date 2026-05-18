@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Activity, Cpu, Database, Gauge, LineChart, Network } from 'lucide-react';
+import { Activity, Calculator, Cpu, Database, Gauge, LineChart, Network } from 'lucide-react';
 import AccuracyChart from './components/AccuracyChart.jsx';
+import ClassificationPredictionPanel from './components/ClassificationPredictionPanel.jsx';
 import ConfigPanel from './components/ConfigPanel.jsx';
+import CsvDatasetSetupModal from './components/CsvDatasetSetupModal.jsx';
 import DatasetPreview from './components/DatasetPreview.jsx';
 import LossChart from './components/LossChart.jsx';
 import NetworkGraph from './components/NetworkGraph.jsx';
@@ -150,6 +152,22 @@ function App() {
             <NetworkGraph
               config={controller.config}
               inputUnits={controller.modelInfo?.inputUnits ?? controller.dataset?.featureCount ?? 2}
+              outputUnits={controller.modelInfo?.outputUnits ?? controller.dataset?.outputUnits ?? 1}
+            />
+          </section>
+
+          <section className="panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">Прогноз</p>
+                <h2><Calculator size={18} /> Ручное значение</h2>
+              </div>
+            </div>
+            <ClassificationPredictionPanel
+              dataset={controller.dataset}
+              modelInfo={controller.modelInfo}
+              modelIsCurrent={controller.modelIsCurrent}
+              onPredict={controller.predictValue}
             />
           </section>
 
@@ -181,6 +199,26 @@ function App() {
           </section>
         </section>
       </main>
+      )}
+
+      {activePage === 'classification' && (
+        <CsvDatasetSetupModal
+          upload={controller.pendingCsvUpload}
+          task="classification"
+          isOpen={Boolean(controller.pendingCsvUpload)}
+          onCancel={controller.cancelCsvDatasetSetup}
+          onConfirm={controller.confirmCsvDatasetSetup}
+        />
+      )}
+
+      {activePage === 'regression' && (
+        <CsvDatasetSetupModal
+          upload={regressionController.pendingCsvUpload}
+          task="regression"
+          isOpen={Boolean(regressionController.pendingCsvUpload)}
+          onCancel={regressionController.cancelCsvDatasetSetup}
+          onConfirm={regressionController.confirmCsvDatasetSetup}
+        />
       )}
     </div>
   );

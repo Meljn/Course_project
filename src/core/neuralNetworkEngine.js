@@ -38,10 +38,21 @@ function denseLayerName(index, totalLayers) {
   return `Скрытый слой ${index + 1}`;
 }
 
+function normalizeValue(value, stat) {
+  const range = stat.max - stat.min;
+
+  if (range === 0) {
+    return 0;
+  }
+
+  return ((value - stat.min) / range) * 2 - 1;
+}
+
 export class NeuralNetworkEngine {
   constructor() {
     this.model = null;
     this.inputUnits = 2;
+    this.outputUnits = 1;
     this.isTraining = false;
     this.stopRequested = false;
   }
@@ -54,14 +65,16 @@ export class NeuralNetworkEngine {
 
     this.model = null;
     this.inputUnits = 2;
+    this.outputUnits = 1;
     this.isTraining = false;
     this.stopRequested = false;
   }
 
-  createModel(config, inputUnits = 2) {
+  createModel(config, inputUnits = 2, outputUnits = 1) {
     this.dispose();
 
-    const safeInputUnits = Math.max(2, Math.trunc(Number(inputUnits)) || 2);
+    const safeInputUnits = Math.max(1, Math.trunc(Number(inputUnits)) || 2);
+    const safeOutputUnits = Math.max(1, Math.trunc(Number(outputUnits)) || 1);
     const hiddenLayers = config.hiddenLayers.map((neurons) => Number(neurons));
     const model = tf.sequential();
     const regularizer = createRegularizer(config);
@@ -69,6 +82,7 @@ export class NeuralNetworkEngine {
     const useBias = config.useBias !== false;
     const biasInitializer = config.biasInitializer || 'zeros';
     this.inputUnits = safeInputUnits;
+    this.outputUnits = safeOutputUnits;
 
     hiddenLayers.forEach((neurons, index) => {
       model.add(
@@ -86,8 +100,8 @@ export class NeuralNetworkEngine {
 
     model.add(
       tf.layers.dense({
-        units: 1,
-        activation: 'sigmoid',
+        units: safeOutputUnits,
+        activation: safeOutputUnits > 1 ? 'softmax' : 'sigmoid',
         kernelInitializer,
         useBias,
         biasInitializer,
@@ -96,7 +110,7 @@ export class NeuralNetworkEngine {
 
     model.compile({
       optimizer: createOptimizer(config.optimizer, Number(config.learningRate)),
-      loss: config.loss,
+      loss: safeOutputUnits > 1 ? 'categoricalCrossentropy' : config.loss,
     });
 
     this.model = model;
@@ -104,7 +118,7 @@ export class NeuralNetworkEngine {
     return {
       inputUnits: safeInputUnits,
       hiddenLayers,
-      outputUnits: 1,
+      outputUnits: safeOutputUnits,
       trainableParams: model.countParams(),
     };
   }
@@ -153,6 +167,25 @@ export class NeuralNetworkEngine {
     const labels = Array.from(ys.dataSync());
     predictionTensor.dispose();
 
+    if (this.outputUnits > 1) {
+      let correct = 0;
+      const sampleCount = Math.floor(labels.length / this.outputUnits);
+
+      for (let index = 0; index < sampleCount; index += 1) {
+        const offset = index * this.outputUnits;
+        const predictionSlice = predictions.slice(offset, offset + this.outputUnits);
+        const labelSlice = labels.slice(offset, offset + this.outputUnits);
+        const predictedLabel = predictionSlice.indexOf(Math.max(...predictionSlice));
+        const actualLabel = labelSlice.indexOf(Math.max(...labelSlice));
+
+        if (predictedLabel === actualLabel) {
+          correct += 1;
+        }
+      }
+
+      return correct / Math.max(sampleCount, 1);
+    }
+
     const correct = predictions.reduce((total, value, index) => {
       const predictedLabel = value >= 0.5 ? 1 : 0;
       return total + (predictedLabel === labels[index] ? 1 : 0);
@@ -180,7 +213,9 @@ export class NeuralNetworkEngine {
         const x = -1 + (column / Math.max(size - 1, 1)) * 2;
         const input = [...baseline];
         input[0] = x;
-        input[1] = y;
+        if (this.inputUnits > 1) {
+          input[1] = y;
+        }
         points.push(input);
       }
     }
@@ -193,7 +228,50 @@ export class NeuralNetworkEngine {
 
     return {
       resolution: size,
+      outputUnits: this.outputUnits,
       probabilities,
+    };
+  }
+
+  predictRaw(rawInput, dataset) {
+    if (!this.model) {
+      throw new Error('Модель еще не создана.');
+    }
+
+    const input = Array.from({ length: this.inputUnits }, (_, index) => {
+      const value = Number(rawInput[index]);
+
+      if (!Number.isFinite(value)) {
+        throw new Error('Введите значения для всех признаков.');
+      }
+
+      if (dataset?.type === 'custom' && dataset.stats?.[index]) {
+        return normalizeValue(value, dataset.stats[index]);
+      }
+
+      return value;
+    });
+    const inputTensor = tf.tensor2d([input], [1, this.inputUnits]);
+    const predictionTensor = this.model.predict(inputTensor);
+    const predictionValues = Array.from(predictionTensor.dataSync());
+    inputTensor.dispose();
+    predictionTensor.dispose();
+
+    const probabilities =
+      this.outputUnits > 1
+        ? predictionValues
+        : [1 - (predictionValues[0] ?? 0), predictionValues[0] ?? 0];
+    const predictedIndex = probabilities.indexOf(Math.max(...probabilities));
+    const classNames = dataset?.classNames ?? ['0', '1'];
+
+    return {
+      predictedIndex,
+      predictedClass: classNames[predictedIndex] ?? String(predictedIndex),
+      probabilities: probabilities.map((probability, index) => ({
+        classIndex: index,
+        className: classNames[index] ?? String(index),
+        probability,
+      })),
     };
   }
 
@@ -236,7 +314,7 @@ export class NeuralNetworkEngine {
         const shouldUpdateParameters =
           epoch === 0 || epoch + 1 === epochs || (epoch + 1) % parameterInterval === 0;
         const parameters = shouldUpdateParameters ? await this.getParameters() : null;
-        const decisionGrid = this.getDecisionGrid(96, dataset.decisionBaseline);
+        const decisionGrid = dataset.type === 'custom' ? null : this.getDecisionGrid(96, dataset.decisionBaseline);
 
         callbacks.onEpochEnd?.({
           epoch: epoch + 1,
