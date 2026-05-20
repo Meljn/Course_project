@@ -33,6 +33,14 @@ function scale(value, min, max, size) {
   return PADDING + ((value - min) / Math.max(max - min, 1e-8)) * (size - PADDING * 2);
 }
 
+function scaleY(value, min, max) {
+  return HEIGHT - scale(value, min, max, HEIGHT);
+}
+
+function makeTicks(min, max) {
+  return [min, min + (max - min) / 2, max];
+}
+
 function RegressionDatasetPreview({
   config,
   dataset,
@@ -46,9 +54,13 @@ function RegressionDatasetPreview({
   const isCustomDataset = config.datasetType === 'custom';
   const [minX, maxX] = getExtent(points.map((point) => point.x), [-3, 3]);
   const [minY, maxY] = getExtent(points.map((point) => point.y), [-1, 1]);
+  const xAxisY = HEIGHT - PADDING;
+  const yAxisX = PADDING;
+  const xTicks = makeTicks(minX, maxX);
+  const yTicks = makeTicks(minY, maxY);
 
   return (
-    <div className="dataset-preview">
+    <div className={`dataset-preview ${isCustomDataset ? 'dataset-preview--custom' : ''}`}>
       <div className={`dataset-toolbar regression-toolbar ${isCustomDataset ? 'dataset-toolbar--custom' : ''}`}>
         <label className="field dataset-field">
           <span>Датасет</span>
@@ -134,21 +146,45 @@ function RegressionDatasetPreview({
 
       <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label="Точки регрессионного датасета">
         <rect x={PADDING} y={PADDING} width={PLOT_WIDTH} height={PLOT_HEIGHT} className="plot-area" />
-        <line x1={PADDING} y1={HEIGHT - PADDING} x2={WIDTH - PADDING} y2={HEIGHT - PADDING} className="plot-axis" />
-        <line x1={PADDING} y1={PADDING} x2={PADDING} y2={HEIGHT - PADDING} className="plot-axis" />
+        <line x1={PADDING} y1={xAxisY} x2={WIDTH - PADDING} y2={xAxisY} className="coordinate-axis" />
+        <line x1={yAxisX} y1={PADDING} x2={yAxisX} y2={HEIGHT - PADDING} className="coordinate-axis" />
+        {xTicks.map((value) => {
+          const x = scale(value, minX, maxX, WIDTH);
+
+          return (
+            <g key={`regression-x-tick-${value}`}>
+              <line x1={x} y1={xAxisY} x2={x} y2={xAxisY + 5} className="axis-tick" />
+              <text x={x} y={Math.min(xAxisY + 18, HEIGHT - 8)} textAnchor="middle" className="chart-label">
+                {value.toFixed(1)}
+              </text>
+            </g>
+          );
+        })}
+        {yTicks.map((value) => {
+          const y = scaleY(value, minY, maxY);
+
+          return (
+            <g key={`regression-y-tick-${value}`}>
+              <line x1={yAxisX - 5} y1={y} x2={yAxisX} y2={y} className="axis-tick" />
+              <text x={Math.max(yAxisX - 8, 8)} y={y + 4} textAnchor="end" className="chart-label">
+                {value.toFixed(1)}
+              </text>
+            </g>
+          );
+        })}
         {points.map((point, index) => (
           <circle
             key={`${point.x}-${point.y}-${index}`}
             cx={scale(point.x, minX, maxX, WIDTH)}
-            cy={HEIGHT - scale(point.y, minY, maxY, HEIGHT)}
+            cy={scaleY(point.y, minY, maxY)}
             r={3.2}
             className="regression-point"
           />
         ))}
-        <text x={PADDING} y={HEIGHT - 8} className="chart-label">
+        <text x={WIDTH - 7} y={xAxisY + 4} textAnchor="end" className="axis-name">
           {dataset?.featureColumnNames?.[0] ?? 'x'}
         </text>
-        <text x={PADDING} y={20} className="chart-label">
+        <text x={yAxisX} y={13} textAnchor="middle" className="axis-name">
           {dataset?.targetColumnName ?? 'y'}
         </text>
       </svg>

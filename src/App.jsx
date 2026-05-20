@@ -19,6 +19,16 @@ function getPageFromHash() {
   return window.location.hash === '#regression' ? 'regression' : 'classification';
 }
 
+function getClassificationOutputNames(dataset) {
+  const classNames = dataset?.classNames ?? ['0', '1'];
+
+  if ((dataset?.outputUnits ?? 1) > 1) {
+    return classNames;
+  }
+
+  return [`P(${classNames[1] ?? '1'})`];
+}
+
 function App() {
   const controller = useTrainingController();
   const regressionController = useRegressionController();
@@ -153,6 +163,8 @@ function App() {
               config={controller.config}
               inputUnits={controller.modelInfo?.inputUnits ?? controller.dataset?.featureCount ?? 2}
               outputUnits={controller.modelInfo?.outputUnits ?? controller.dataset?.outputUnits ?? 1}
+              inputNames={controller.dataset?.featureColumnNames}
+              outputNames={getClassificationOutputNames(controller.dataset)}
             />
           </section>
 

@@ -48,6 +48,14 @@ export function validateTrainingConfig(config) {
     errors.biasInitializer = 'Выберите допустимую инициализацию смещений.';
   }
 
+  if (config.useInitializerSeed) {
+    if (!Number.isInteger(Number(config.initializerSeed))) {
+      errors.initializerSeed = 'Seed инициализации должен быть целым числом.';
+    } else if (!numberInRange(config.initializerSeed, LIMITS.minInitializerSeed, LIMITS.maxInitializerSeed)) {
+      errors.initializerSeed = `Seed должен быть от ${LIMITS.minInitializerSeed} до ${LIMITS.maxInitializerSeed}.`;
+    }
+  }
+
   if (!Number.isInteger(Number(config.batchSize))) {
     errors.batchSize = 'Размер батча должен быть целым числом.';
   } else if (!numberInRange(config.batchSize, LIMITS.minBatchSize, LIMITS.maxBatchSize)) {

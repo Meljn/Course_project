@@ -21,6 +21,8 @@ export const REGRESSION_LIMITS = {
   maxSampleCount: 800,
   minNoise: 0,
   maxNoise: 0.3,
+  minInitializerSeed: 1,
+  maxInitializerSeed: 2147483647,
 };
 
 export const DEFAULT_REGRESSION_CONFIG = {
@@ -31,6 +33,8 @@ export const DEFAULT_REGRESSION_CONFIG = {
   kernelInitializer: 'glorotUniform',
   useBias: true,
   biasInitializer: 'zeros',
+  useInitializerSeed: false,
+  initializerSeed: 42,
   learningRate: 0.01,
   epochs: 180,
   batchSize: 16,
@@ -72,6 +76,8 @@ export function getRegressionModelSignature(config) {
     kernelInitializer: config.kernelInitializer,
     useBias: config.useBias !== false,
     biasInitializer: config.biasInitializer,
+    useInitializerSeed: Boolean(config.useInitializerSeed),
+    initializerSeed: config.useInitializerSeed ? Number(config.initializerSeed) : null,
     learningRate: Number(config.learningRate),
     regularization: config.regularization,
     regularizationRate: Number(config.regularizationRate),

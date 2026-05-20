@@ -31,6 +31,38 @@ function createOptimizer(name, learningRate) {
   return tf.train.adam(learningRate);
 }
 
+function getInitializerSeed(config, offset = 0) {
+  if (!config.useInitializerSeed) {
+    return undefined;
+  }
+
+  const seed = Math.trunc(Number(config.initializerSeed));
+
+  if (!Number.isFinite(seed)) {
+    return undefined;
+  }
+
+  return seed + offset;
+}
+
+function createInitializer(name, seed) {
+  if (seed === undefined) {
+    return name;
+  }
+
+  if (name === 'zeros') {
+    return tf.initializers.zeros();
+  }
+
+  if (name === 'ones') {
+    return tf.initializers.ones();
+  }
+
+  const initializer = tf.initializers[name];
+
+  return typeof initializer === 'function' ? initializer({ seed }) : name;
+}
+
 function denseLayerName(index, totalLayers) {
   if (index === totalLayers - 1) {
     return 'Выходной слой';
@@ -64,32 +96,34 @@ export class RegressionEngine {
     const hiddenLayers = config.hiddenLayers.map((neurons) => Number(neurons));
     const model = tf.sequential();
     const regularizer = createRegularizer(config);
-    const kernelInitializer = config.kernelInitializer || 'glorotUniform';
+    const kernelInitializerName = config.kernelInitializer || 'glorotUniform';
     const useBias = config.useBias !== false;
-    const biasInitializer = config.biasInitializer || 'zeros';
+    const biasInitializerName = config.biasInitializer || 'zeros';
     this.inputUnits = safeInputUnits;
 
     hiddenLayers.forEach((neurons, index) => {
+      const seedOffset = index * 2;
       model.add(
         tf.layers.dense({
           units: neurons,
           inputShape: index === 0 ? [safeInputUnits] : undefined,
           activation: config.activation,
-          kernelInitializer,
+          kernelInitializer: createInitializer(kernelInitializerName, getInitializerSeed(config, seedOffset)),
           useBias,
-          biasInitializer,
+          biasInitializer: createInitializer(biasInitializerName, getInitializerSeed(config, seedOffset + 1)),
           kernelRegularizer: regularizer,
         }),
       );
     });
 
+    const outputSeedOffset = hiddenLayers.length * 2;
     model.add(
       tf.layers.dense({
         units: 1,
         activation: 'linear',
-        kernelInitializer,
+        kernelInitializer: createInitializer(kernelInitializerName, getInitializerSeed(config, outputSeedOffset)),
         useBias,
-        biasInitializer,
+        biasInitializer: createInitializer(biasInitializerName, getInitializerSeed(config, outputSeedOffset + 1)),
       }),
     );
 

@@ -152,6 +152,10 @@ select:disabled {
   min-height: 430px;
 }
 
+.panel-focus:has(.dataset-preview--custom) {
+  min-height: 0;
+}
+
 .panel-heading,
 .control-panel__header {
   display: flex;
@@ -1039,10 +1043,16 @@ select:disabled {
 
 .layer-label,
 .neuron-label,
+.variable-label,
 .chart-label {
   fill: var(--muted);
   font-size: 12px;
   font-weight: 760;
+}
+
+.variable-label {
+  fill: var(--muted-strong);
+  font-size: 11px;
 }
 
 .neuron {
@@ -1182,6 +1192,22 @@ select:disabled {
 .plot-axis {
   stroke: rgba(255, 255, 255, 0.12);
   stroke-width: 1;
+}
+
+.coordinate-axis {
+  stroke: rgba(236, 236, 241, 0.48);
+  stroke-width: 1.35;
+}
+
+.axis-tick {
+  stroke: rgba(236, 236, 241, 0.42);
+  stroke-width: 1;
+}
+
+.axis-name {
+  fill: var(--muted-strong);
+  font-size: 12px;
+  font-weight: 820;
 }
 
 .point {

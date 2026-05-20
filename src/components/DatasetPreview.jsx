@@ -42,6 +42,10 @@ function scale(value, size, radius = 0) {
   return clamp(scaledValue, PADDING + inset, size - PADDING - inset);
 }
 
+function coordinateScale(value, size) {
+  return PADDING + ((value + 1) / 2) * (size - PADDING * 2);
+}
+
 function FieldError({ message }) {
   if (!message) {
     return null;
@@ -141,6 +145,8 @@ function DatasetPreview({
   const points = dataset?.all ?? [];
   const isCustomDataset = config.datasetType === 'custom';
   const classNames = dataset?.classNames ?? ['0', '1'];
+  const xAxisY = HEIGHT - PADDING;
+  const yAxisX = PADDING;
   const decisionImage = useMemo(
     () => (isCustomDataset ? '' : createDecisionImage(decisionGrid)),
     [decisionGrid, isCustomDataset],
@@ -253,8 +259,31 @@ function DatasetPreview({
           />
         )}
 
-        <line x1={WIDTH / 2} y1={PADDING} x2={WIDTH / 2} y2={HEIGHT - PADDING} className="plot-axis" />
-        <line x1={PADDING} y1={HEIGHT / 2} x2={WIDTH - PADDING} y2={HEIGHT / 2} className="plot-axis" />
+        <line x1={yAxisX} y1={PADDING} x2={yAxisX} y2={HEIGHT - PADDING} className="coordinate-axis" />
+        <line x1={PADDING} y1={xAxisY} x2={WIDTH - PADDING} y2={xAxisY} className="coordinate-axis" />
+        {[-1, 0, 1].map((value) => {
+          const x = coordinateScale(value, WIDTH);
+          const y = HEIGHT - coordinateScale(value, HEIGHT);
+
+          return (
+            <g key={`classification-tick-${value}`}>
+              <line x1={x} y1={xAxisY} x2={x} y2={xAxisY + 5} className="axis-tick" />
+              <line x1={yAxisX - 5} y1={y} x2={yAxisX} y2={y} className="axis-tick" />
+              <text x={x} y={xAxisY + 17} textAnchor="middle" className="chart-label">
+                {value}
+              </text>
+              <text x={yAxisX - 9} y={y + 4} textAnchor="end" className="chart-label">
+                {value}
+              </text>
+            </g>
+          );
+        })}
+        <text x={WIDTH - 7} y={xAxisY + 4} textAnchor="end" className="axis-name">
+          x
+        </text>
+        <text x={yAxisX} y={13} textAnchor="middle" className="axis-name">
+          y
+        </text>
         {points.map((point, index) => {
           const radius = getPointRadius(point);
 

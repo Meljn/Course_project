@@ -48,6 +48,20 @@ export function validateRegressionConfig(config, dataset) {
     errors.biasInitializer = 'Выберите допустимую инициализацию смещений.';
   }
 
+  if (config.useInitializerSeed) {
+    if (!Number.isInteger(Number(config.initializerSeed))) {
+      errors.initializerSeed = 'Seed инициализации должен быть целым числом.';
+    } else if (
+      !numberInRange(
+        config.initializerSeed,
+        REGRESSION_LIMITS.minInitializerSeed,
+        REGRESSION_LIMITS.maxInitializerSeed,
+      )
+    ) {
+      errors.initializerSeed = `Seed должен быть от ${REGRESSION_LIMITS.minInitializerSeed} до ${REGRESSION_LIMITS.maxInitializerSeed}.`;
+    }
+  }
+
   const effectiveSampleCount = config.datasetType === 'custom' ? dataset?.rowCount : Number(config.sampleCount);
 
   if (!Number.isInteger(Number(config.batchSize))) {

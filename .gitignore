@@ -38,3 +38,9 @@ desktop.ini
 tmp/
 temp/
 *.tmp
+
+Для курсовой/
+_coursework_extract/
+
+.ARCHITECTURE.md 
+.BACKEND_GUIDE.md

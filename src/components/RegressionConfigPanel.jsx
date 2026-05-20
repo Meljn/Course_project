@@ -86,6 +86,21 @@ const HELP_CONTENT = {
       'Ones и случайные значения могут менять начальное положение функции.',
     ],
   },
+  useInitializerSeed: {
+    title: 'Seed инициализации',
+    description:
+      'Фиксирует случайность при создании начальных весов и смещений. При одинаковом seed и одинаковых настройках регрессионная модель стартует из повторяемого состояния.',
+    items: [
+      'Включено: веса и случайные смещения создаются воспроизводимо.',
+      'Выключено: TensorFlow.js выбирает случайную инициализацию как обычно.',
+      'Seed влияет только на инициализацию модели, а не на шум или разбиение датасета.',
+    ],
+  },
+  initializerSeed: {
+    title: 'Значение seed',
+    description:
+      'Целое число, которое используется как база для генерации начальных весов и смещений. Для разных слоев seed немного смещается, чтобы слои не получали одинаковые случайные матрицы.',
+  },
   learningRate: {
     title: 'Скорость обучения',
     description:
@@ -410,6 +425,36 @@ function RegressionConfigPanel({
               errorMessage={validation.errors.biasInitializer}
               onChange={(value) => onUpdate({ biasInitializer: value })}
             />
+          </div>
+        </SettingsSection>
+
+        <SettingsSection title="Seed инициализации">
+          <div className="form-grid">
+            <div className="field">
+              <FieldLabel help={HELP_CONTENT.useInitializerSeed}>Использовать seed</FieldLabel>
+              <label className="toggle-row">
+                <input
+                  type="checkbox"
+                  checked={Boolean(config.useInitializerSeed)}
+                  disabled={isTraining}
+                  onChange={(event) => onUpdate({ useInitializerSeed: event.target.checked })}
+                />
+                <span>{config.useInitializerSeed ? 'Включен' : 'Случайно'}</span>
+              </label>
+            </div>
+            <div className="field">
+              <FieldLabel help={HELP_CONTENT.initializerSeed}>Seed</FieldLabel>
+              <input
+                type="number"
+                min={REGRESSION_LIMITS.minInitializerSeed}
+                max={REGRESSION_LIMITS.maxInitializerSeed}
+                step="1"
+                value={config.initializerSeed}
+                disabled={isTraining || !config.useInitializerSeed}
+                onChange={(event) => onUpdate({ initializerSeed: event.target.value })}
+              />
+              <FieldError message={validation.errors.initializerSeed} />
+            </div>
           </div>
         </SettingsSection>
 

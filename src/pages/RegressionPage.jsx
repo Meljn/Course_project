@@ -106,6 +106,8 @@ function RegressionPage({ controller }) {
             config={controller.config}
             inputUnits={controller.modelInfo?.inputUnits ?? controller.dataset?.featureCount ?? 1}
             outputUnits={controller.modelInfo?.outputUnits ?? 1}
+            inputNames={controller.dataset?.featureColumnNames}
+            outputNames={[controller.dataset?.targetColumnName ?? 'y']}
           />
         </section>
 

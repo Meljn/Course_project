@@ -1,7 +1,8 @@
 const WIDTH = 940;
 const HEIGHT = 360;
-const PADDING_X = 72;
+const PADDING_X = 112;
 const PADDING_Y = 48;
+const MAX_VARIABLE_LABEL_LENGTH = 18;
 
 function getLayerPositions(layers) {
   const layerGap = (WIDTH - PADDING_X * 2) / Math.max(layers.length - 1, 1);
@@ -22,13 +23,33 @@ function getLayerPositions(layers) {
   });
 }
 
-function NetworkGraph({ config, inputUnits = 2, outputUnits = 1 }) {
+function formatVariableLabel(label) {
+  const value = String(label ?? '').trim();
+
+  if (value.length <= MAX_VARIABLE_LABEL_LENGTH) {
+    return value;
+  }
+
+  return `${value.slice(0, MAX_VARIABLE_LABEL_LENGTH - 3)}...`;
+}
+
+function makeVariableNames(names, count, prefix) {
+  return Array.from({ length: count }, (_, index) => {
+    const name = String(names?.[index] ?? '').trim();
+    return name || `${prefix}${index + 1}`;
+  });
+}
+
+function NetworkGraph({ config, inputUnits = 2, outputUnits = 1, inputNames = [], outputNames = [] }) {
+  const safeInputUnits = Math.max(1, Math.trunc(Number(inputUnits)) || 1);
+  const safeOutputUnits = Math.max(1, Math.trunc(Number(outputUnits)) || 1);
   const layers = [
-    { label: 'Вход', count: Math.max(1, Math.trunc(Number(inputUnits)) || 1) },
+    { label: 'Вход', count: safeInputUnits, variableNames: makeVariableNames(inputNames, safeInputUnits, 'x') },
     ...config.hiddenLayers.map((count, index) => ({ label: `Скрытый ${index + 1}`, count: Number(count) || 0 })),
-    { label: 'Выход', count: Math.max(1, Math.trunc(Number(outputUnits)) || 1) },
+    { label: 'Выход', count: safeOutputUnits, variableNames: makeVariableNames(outputNames, safeOutputUnits, 'y') },
   ];
   const positionedLayers = getLayerPositions(layers);
+  const lastLayerIndex = positionedLayers.length - 1;
   const connections = positionedLayers.slice(0, -1).flatMap((layer, layerIndex) => {
     const nextLayer = positionedLayers[layerIndex + 1];
 
@@ -78,6 +99,18 @@ function NetworkGraph({ config, inputUnits = 2, outputUnits = 1 }) {
                   <text x={neuron.x} y={neuron.y + 5} textAnchor="middle" className="neuron-label">
                     {neuronIndex + 1}
                   </text>
+                  {layerIndex === 0 && (
+                    <text x={neuron.x - 28} y={neuron.y + 4} textAnchor="end" className="variable-label">
+                      <title>{layer.variableNames[neuronIndex]}</title>
+                      {formatVariableLabel(layer.variableNames[neuronIndex])}
+                    </text>
+                  )}
+                  {layerIndex === lastLayerIndex && (
+                    <text x={neuron.x + 28} y={neuron.y + 4} textAnchor="start" className="variable-label">
+                      <title>{layer.variableNames[neuronIndex]}</title>
+                      {formatVariableLabel(layer.variableNames[neuronIndex])}
+                    </text>
+                  )}
                 </g>
               ))}
             </g>
