@@ -144,50 +144,52 @@ function RegressionDatasetPreview({
         </div>
       )}
 
-      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label="Точки регрессионного датасета">
-        <rect x={PADDING} y={PADDING} width={PLOT_WIDTH} height={PLOT_HEIGHT} className="plot-area" />
-        <line x1={PADDING} y1={xAxisY} x2={WIDTH - PADDING} y2={xAxisY} className="coordinate-axis" />
-        <line x1={yAxisX} y1={PADDING} x2={yAxisX} y2={HEIGHT - PADDING} className="coordinate-axis" />
-        {xTicks.map((value) => {
-          const x = scale(value, minX, maxX, WIDTH);
-
-          return (
-            <g key={`regression-x-tick-${value}`}>
-              <line x1={x} y1={xAxisY} x2={x} y2={xAxisY + 5} className="axis-tick" />
-              <text x={x} y={Math.min(xAxisY + 18, HEIGHT - 8)} textAnchor="middle" className="chart-label">
-                {value.toFixed(1)}
-              </text>
-            </g>
-          );
-        })}
-        {yTicks.map((value) => {
-          const y = scaleY(value, minY, maxY);
-
-          return (
-            <g key={`regression-y-tick-${value}`}>
-              <line x1={yAxisX - 5} y1={y} x2={yAxisX} y2={y} className="axis-tick" />
-              <text x={Math.max(yAxisX - 8, 8)} y={y + 4} textAnchor="end" className="chart-label">
-                {value.toFixed(1)}
-              </text>
-            </g>
-          );
-        })}
-        {points.map((point, index) => (
-          <circle
-            key={`${point.x}-${point.y}-${index}`}
-            cx={scale(point.x, minX, maxX, WIDTH)}
-            cy={scaleY(point.y, minY, maxY)}
-            r={3.2}
-            className="regression-point"
-          />
-        ))}
-        <text x={WIDTH - 7} y={xAxisY + 4} textAnchor="end" className="axis-name">
-          {dataset?.featureColumnNames?.[0] ?? 'x'}
-        </text>
-        <text x={yAxisX} y={13} textAnchor="middle" className="axis-name">
-          {dataset?.targetColumnName ?? 'y'}
-        </text>
-      </svg>
+      {!isCustomDataset && (
+        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label="Точки регрессионного датасета">
+          <rect x={PADDING} y={PADDING} width={PLOT_WIDTH} height={PLOT_HEIGHT} className="plot-area" />
+          <line x1={PADDING} y1={xAxisY} x2={WIDTH - PADDING} y2={xAxisY} className="coordinate-axis" />
+          <line x1={yAxisX} y1={PADDING} x2={yAxisX} y2={HEIGHT - PADDING} className="coordinate-axis" />
+          {xTicks.map((value) => {
+            const x = scale(value, minX, maxX, WIDTH);
+  
+            return (
+              <g key={`regression-x-tick-${value}`}>
+                <line x1={x} y1={xAxisY} x2={x} y2={xAxisY + 5} className="axis-tick" />
+                <text x={x} y={Math.min(xAxisY + 18, HEIGHT - 8)} textAnchor="middle" className="chart-label">
+                  {value.toFixed(1)}
+                </text>
+              </g>
+            );
+          })}
+          {yTicks.map((value) => {
+            const y = scaleY(value, minY, maxY);
+  
+            return (
+              <g key={`regression-y-tick-${value}`}>
+                <line x1={yAxisX - 5} y1={y} x2={yAxisX} y2={y} className="axis-tick" />
+                <text x={Math.max(yAxisX - 8, 8)} y={y + 4} textAnchor="end" className="chart-label">
+                  {value.toFixed(1)}
+                </text>
+              </g>
+            );
+          })}
+          {points.map((point, index) => (
+            <circle
+              key={`${point.x}-${point.y}-${index}`}
+              cx={scale(point.x, minX, maxX, WIDTH)}
+              cy={scaleY(point.y, minY, maxY)}
+              r={3.2}
+              className="regression-point"
+            />
+          ))}
+          <text x={WIDTH - 7} y={xAxisY + 4} textAnchor="end" className="axis-name">
+            {dataset?.featureColumnNames?.[0] ?? 'x'}
+          </text>
+          <text x={yAxisX} y={13} textAnchor="middle" className="axis-name">
+            {dataset?.targetColumnName ?? 'y'}
+          </text>
+        </svg>
+    )}
     </div>
   );
 }
