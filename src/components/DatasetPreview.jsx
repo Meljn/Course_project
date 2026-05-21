@@ -237,69 +237,71 @@ function DatasetPreview({
         </div>
       )}
 
-      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label="Карта классификации учебных точек">
-        <rect x={PADDING} y={PADDING} width={PLOT_WIDTH} height={PLOT_HEIGHT} className="plot-area" />
-
-        {decisionImage && (
-          <image
-            href={decisionImage}
-            x={PADDING}
-            y={PADDING}
-            width={PLOT_WIDTH}
-            height={PLOT_HEIGHT}
-            preserveAspectRatio="none"
-            className="decision-image"
-          />
-        )}
-
-        {decisionGrid && !isCustomDataset && (
-          <path
-            className="decision-midline"
-            d={`M ${PADDING} ${HEIGHT / 2} H ${WIDTH - PADDING} M ${WIDTH / 2} ${PADDING} V ${HEIGHT - PADDING}`}
-          />
-        )}
-
-        <line x1={yAxisX} y1={PADDING} x2={yAxisX} y2={HEIGHT - PADDING} className="coordinate-axis" />
-        <line x1={PADDING} y1={xAxisY} x2={WIDTH - PADDING} y2={xAxisY} className="coordinate-axis" />
-        {[-1, 0, 1].map((value) => {
-          const x = coordinateScale(value, WIDTH);
-          const y = HEIGHT - coordinateScale(value, HEIGHT);
-
-          return (
-            <g key={`classification-tick-${value}`}>
-              <line x1={x} y1={xAxisY} x2={x} y2={xAxisY + 5} className="axis-tick" />
-              <line x1={yAxisX - 5} y1={y} x2={yAxisX} y2={y} className="axis-tick" />
-              <text x={x} y={xAxisY + 17} textAnchor="middle" className="chart-label">
-                {value}
-              </text>
-              <text x={yAxisX - 9} y={y + 4} textAnchor="end" className="chart-label">
-                {value}
-              </text>
-            </g>
-          );
-        })}
-        <text x={WIDTH - 7} y={xAxisY + 4} textAnchor="end" className="axis-name">
-          x
-        </text>
-        <text x={yAxisX} y={13} textAnchor="middle" className="axis-name">
-          y
-        </text>
-        {points.map((point, index) => {
-          const radius = getPointRadius(point);
-
-          return (
-            <circle
-              key={`${point.x}-${point.y}-${index}`}
-              cx={scale(point.x, WIDTH, radius)}
-              cy={HEIGHT - scale(point.y, HEIGHT, radius)}
-              r={radius}
-              className="point"
-              fill={getClassColor(point.label)}
-              opacity={point.split === 'train' ? 0.82 : 1}
+      {!isCustomDataset && (
+        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label="Карта классификации учебных точек">
+          <rect x={PADDING} y={PADDING} width={PLOT_WIDTH} height={PLOT_HEIGHT} className="plot-area" />
+  
+          {decisionImage && (
+            <image
+              href={decisionImage}
+              x={PADDING}
+              y={PADDING}
+              width={PLOT_WIDTH}
+              height={PLOT_HEIGHT}
+              preserveAspectRatio="none"
+              className="decision-image"
             />
-          );
-        })}
-      </svg>
+          )}
+  
+          {decisionGrid && !isCustomDataset && (
+            <path
+              className="decision-midline"
+              d={`M ${PADDING} ${HEIGHT / 2} H ${WIDTH - PADDING} M ${WIDTH / 2} ${PADDING} V ${HEIGHT - PADDING}`}
+            />
+          )}
+  
+          <line x1={yAxisX} y1={PADDING} x2={yAxisX} y2={HEIGHT - PADDING} className="coordinate-axis" />
+          <line x1={PADDING} y1={xAxisY} x2={WIDTH - PADDING} y2={xAxisY} className="coordinate-axis" />
+          {[-1, 0, 1].map((value) => {
+            const x = coordinateScale(value, WIDTH);
+            const y = HEIGHT - coordinateScale(value, HEIGHT);
+  
+            return (
+              <g key={`classification-tick-${value}`}>
+                <line x1={x} y1={xAxisY} x2={x} y2={xAxisY + 5} className="axis-tick" />
+                <line x1={yAxisX - 5} y1={y} x2={yAxisX} y2={y} className="axis-tick" />
+                <text x={x} y={xAxisY + 17} textAnchor="middle" className="chart-label">
+                  {value}
+                </text>
+                <text x={yAxisX - 9} y={y + 4} textAnchor="end" className="chart-label">
+                  {value}
+                </text>
+              </g>
+            );
+          })}
+          <text x={WIDTH - 7} y={xAxisY + 4} textAnchor="end" className="axis-name">
+            x
+          </text>
+          <text x={yAxisX} y={13} textAnchor="middle" className="axis-name">
+            y
+          </text>
+          {points.map((point, index) => {
+            const radius = getPointRadius(point);
+  
+            return (
+              <circle
+                key={`${point.x}-${point.y}-${index}`}
+                cx={scale(point.x, WIDTH, radius)}
+                cy={HEIGHT - scale(point.y, HEIGHT, radius)}
+                r={radius}
+                className="point"
+                fill={getClassColor(point.label)}
+                opacity={point.split === 'train' ? 0.82 : 1}
+              />
+            );
+          })}
+        </svg>
+      )}
 
       <div className="legend-row">
         {classNames.map((className, index) => (
